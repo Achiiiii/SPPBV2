@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "Bash(mkdir:*)",
+      "Bash(cat:*)",
+      "Bash(ls \"c:\\\\Users\\\\sam98\\\\Desktop\\\\unityProject\\\\SPPBV2\\\\Assets\\\\Shader\"\" 2>/dev/null || dir \"c:Userssam98DesktopunityProjectSPPBV2AssetsShader \")",
+      "Bash(del \"c:\\\\Users\\\\sam98\\\\Desktop\\\\unityProject\\\\SPPBV2\\\\Assets\\\\Scripts\\\\UI\\\\Components\\\\HintGlowEffect.cs\")",
+      "Bash(del \"c:\\\\Users\\\\sam98\\\\Desktop\\\\unityProject\\\\SPPBV2\\\\Assets\\\\Shader\\\\HintGlowShader.shader\")",
+      "Bash(del \"c:\\\\Users\\\\sam98\\\\Desktop\\\\unityProject\\\\SPPBV2\\\\Assets\\\\Shader\\\\HintGlowInner.mat\")",
+      "Bash(del \"c:\\\\Users\\\\sam98\\\\Desktop\\\\unityProject\\\\SPPBV2\\\\Assets\\\\Shader\\\\HintGlowOuter.mat\")",
+      "Bash(del \"c:\\\\Users\\\\sam98\\\\Desktop\\\\unityProject\\\\SPPBV2\\\\Assets\\\\Shader\\\\HintEdgeBurnShader.shader\")",
+      "Bash(del \"c:\\\\Users\\\\sam98\\\\Desktop\\\\unityProject\\\\SPPBV2\\\\Assets\\\\Shader\\\\HintEdgeBurn.mat\")"
+    ]
+  }
+}

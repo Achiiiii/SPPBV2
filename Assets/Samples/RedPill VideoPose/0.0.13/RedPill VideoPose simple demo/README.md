@@ -1,0 +1,24 @@
+# Simple Demo
+- simple demo of motion capture
+- Scripts
+	- VideoPoseTest
+		- toggle "Upper Body Mode" from editor to switch between full body and upper body mode
+		- toggle "Detect A Pose" to enable/disable A-pose detection in full body mode
+			- disabling it may cause imprecise global position
+		- full body mode
+			- Do an A-pose to start if "Detect A Pose" is set
+			- make sure you are fully in the camera view
+		- upper body mode
+			- no calibration required 
+			- at least 1 meter away from camera
+	- InputManager
+		- flip
+			- setting X=-1 flips image horizontally
+	- MotionRetargeter
+		- yScaleOnly
+			- toggle it for character with short legs
+- Data flow:
+	- InputManager capture frames from camera/video/image
+	- VideoPoseTest send frames to VideoPose
+	- VideoPoseTest receives and passes pose data to VideoPoseAvatar
+	- MotionRetargeter retargets the pose to specific character

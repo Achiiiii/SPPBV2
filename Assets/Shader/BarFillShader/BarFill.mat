@@ -1,0 +1,62 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: BarFill
+  m_Shader: {fileID: 4800000, guid: 6d063636a01bffc45a4d018eb0938818, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _MainTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _BladeHeight: 2
+    - _BladeLength: 0.127
+    - _BladeSoftness: 0.438
+    - _BladeWidth: 0.0076
+    - _ColorMask: 15
+    - _EdgeSoftness: 0.001
+    - _FBMBrightness: 0
+    - _FBMColorMix: 0.83
+    - _FBMFlowDirection: 1
+    - _FBMFlowSpeed: 0.5
+    - _FBMIntensity: 0.5
+    - _FBMRatio: 6.71
+    - _FBMScale: 0.6
+    - _FBMSpeed: 1
+    - _FBMTintStrength: 0.506
+    - _FillAmount: 1
+    - _FillDirection: 0
+    - _GlowIntensity: 5
+    - _GlowPulseSpeed: 3.86
+    - _Saturation: 1.618
+    - _Stencil: 0
+    - _StencilComp: 8
+    - _StencilOp: 0
+    - _StencilReadMask: 255
+    - _StencilWriteMask: 255
+    m_Colors:
+    - _ColorEnd: {r: 0.74509805, g: 0.035294108, b: 0.035294108, a: 1}
+    - _ColorStart: {r: 0.79910296, g: 0.1811643, b: 0.046665095, a: 1}
+    - _FBMTintColor: {r: 14.928529, g: 14.928529, b: 14.928529, a: 1}
+    - _GlowColor: {r: 1, g: 1, b: 1, a: 1}
+  m_BuildTextureStacks: []
