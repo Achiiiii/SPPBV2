@@ -24,6 +24,19 @@ public class MotionSDKClient : MonoBehaviour
     private int currentTest = 0;          // 目前進行中的測驗
     private bool testFinishedPrinted = true;
 
+    private float _noCorrectTimer = 0f;      // 距離上次正確動作的時間
+    private const float WRONG_HINT_TIMEOUT = 3f;
+    private float _testStartTime = 0f;       // 測驗開始時間（防止第一幀誤觸 finished）
+    private const float FINISHED_GRACE = 1.0f;
+    private bool _walkHintShown = false;
+    private const float WALK_TIMEOUT_HINT = 10f;
+
+    // 平衡測試：state=0 短暫閃爍不視為違規，需持續 VIOLATION_TIMEOUT 秒以上
+    private int _previousState = 0;
+    private float _balanceViolationTimer = 0f;
+    private bool _balanceIsCorrect = false;  // 目前是否正在顯示正確提示
+    private const float BALANCE_VIOLATION_TIMEOUT = 0.5f;
+
 #if UNITY_ANDROID && !UNITY_EDITOR
     const string LIB_NAME = "motion_sdk";   // Android .so
 #else
@@ -71,8 +84,6 @@ public class MotionSDKClient : MonoBehaviour
         string json = Marshal.PtrToStringAnsi(
             process_points(pts, numPts, dim)
         );
-        Debug.Log(json);
-
         if (!string.IsNullOrEmpty(json))
         {
             HandleRuntimeJson(json);
@@ -111,6 +122,10 @@ public class MotionSDKClient : MonoBehaviour
         start1_3_single = start2_single =
         start3_single = false;
 
+        _previousState = 0;
+        _noCorrectTimer = 0f;
+        _testStartTime = Time.time;
+        _walkHintShown = false;
         Debug.Log($"▶️ 測驗 {type} 開始");
     }
 
@@ -118,22 +133,99 @@ public class MotionSDKClient : MonoBehaviour
     {
         RuntimeResult r = JsonUtility.FromJson<RuntimeResult>(json);
 
-        if (currentTest == 5 && r.sit > 0)
+        // 依 type 輸出對應 SDK 欄位
+        switch (currentTest)
         {
-            _testPage.IncrementSitStandCount(r.sit);
-            Debug.Log($"坐站進度：{r.sit}/5");
+            case 1:
+            case 2:
+                Debug.Log($"{{ \"type\":{r.type}, \"bdis\":{r.bdis:F2}, \"fdis\":{r.fdis:F2}, \"score\":{r.score}, \"state\":{r.state}, \"elapsed\":{r.elapsed:F2} }}");
+                break;
+            case 3:
+                Debug.Log($"{{ \"type\":{r.type}, \"score\":{r.score}, \"state\":{r.state}, \"elapsed\":{r.elapsed:F2} }}");
+                break;
+            case 4:
+                Debug.Log($"{{ \"type\":{r.type}, \"diff\":{r.diff:F2}, \"score\":{r.score}, \"state\":{r.state}, \"elapsed\":{r.elapsed:F2} }}");
+                break;
+            case 5:
+                int sitVal = r.sit_count > 0 ? r.sit_count : r.sit;
+                Debug.Log($"{{ \"type\":{r.type}, \"sit_count\":{sitVal}, \"score\":{r.score}, \"state\":{r.state}, \"elapsed\":{r.elapsed:F2} }}");
+                break;
         }
 
-        if (isRunning && !testFinishedPrinted)
+        if (currentTest == 5)
         {
-            bool finished =
-                (r.state == 0 && currentTest != 0) ||
-                (currentTest == 3 && r.type == 10);
+            int sitVal = r.sit_count > 0 ? r.sit_count : r.sit; // 相容兩種欄位名稱
+            if (sitVal > 0)
+            {
+                _testPage.IncrementSitStandCount(sitVal);
+            }
+        }
+
+        // 平衡/步行測試（type 1-4）：動作正確/錯誤提示
+        if (currentTest >= 1 && currentTest <= 4)
+        {
+            if (currentTest <= 3)
+            {
+                // 平衡測試：使用 debounce 避免 state 短暫閃爍誤判
+                bool isNowCorrect = (r.state == currentTest);
+
+                if (isNowCorrect)
+                {
+                    // 姿勢正確：重置違規計時器
+                    _balanceViolationTimer = 0f;
+                    _noCorrectTimer = 0f;
+
+                    if (!_balanceIsCorrect)             // 剛進入正確姿勢
+                    {
+                        _balanceIsCorrect = true;
+                        _testPage.OnActionFeedback(true, r.score);
+                    }
+                }
+                else
+                {
+                    // 姿勢不正確：累積違規時間，超過閾值才視為真正違規
+                    _balanceViolationTimer += Time.deltaTime;
+
+                    if (_balanceIsCorrect && _balanceViolationTimer >= BALANCE_VIOLATION_TIMEOUT)
+                    {
+                        // 確認持續不正確 → 隱藏正確提示（平衡測試不顯示錯誤提示）
+                        _balanceIsCorrect = false;
+                        _testPage.HideCorrectHint();
+                    }
+                }
+            }
+            else
+            {
+                // 步行測試：elapsed 超過閾值且未完成 → 顯示錯誤提示
+                if (r.elapsed > WALK_TIMEOUT_HINT && !_walkHintShown)
+                {
+                    _testPage.OnActionFeedback(false, r.score);
+                    _walkHintShown = true;
+                }
+
+                // 更新步行進度條
+                _testPage.UpdateWalkProgress(r.diff);
+            }
+
+            _previousState = r.state;
+        }
+
+        if (isRunning && !testFinishedPrinted && (Time.time - _testStartTime) >= FINISHED_GRACE)
+        {
+            // 平衡測試需等違規計時器確認，防止短暫 state=0 閃爍誤判結束
+            bool stateEnded = (r.state == 0 && currentTest != 0);
+            bool balanceDebounceOk = (currentTest > 3) || (_balanceViolationTimer >= BALANCE_VIOLATION_TIMEOUT);
+            bool finished = stateEnded && balanceDebounceOk;
 
             if (finished)
             {
-                Debug.Log($"測驗 {currentTest} 結束，分數 = {r.score}");
+                Debug.Log($"[結束] type={currentTest}, score={r.score}, elapsed={r.elapsed:F2}");
                 testFinishedPrinted = true;
+
+                // 步行測試由 SDK 偵測完成（走滿 3 公尺）→ 通知 TestPage 結束
+                if (currentTest == 4)
+                    _testPage.OnWalkTestComplete();
+
                 isRunning = false;
                 currentTest = 0;
             }
@@ -168,10 +260,15 @@ public class MotionSDKClient : MonoBehaviour
     [Serializable]
     public class RuntimeResult
     {
-        public int type;    // exe_type
-        public int state;   // same as exe_type in DLL
-        public int sit;
-        public float score;
+        public int type;        // 測驗類型
+        public int state;       // 當前狀態（0=結束）
+        public int sit_count;   // type 5 深蹲次數（PDF 原名）
+        public int sit;         // 相容舊版欄位名稱
+        public float score;     // 分數
+        public float bdis;      // type 1/2 後退距離
+        public float fdis;      // type 1/2 前傾距離
+        public float elapsed;   // 已用時間（秒）
+        public float diff;      // 步行測試進度（0~300, diff_raw/10）
     }
 
 

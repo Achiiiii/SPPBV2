@@ -10,6 +10,7 @@ public class ButtonTrigger : MonoBehaviour
     Transform transform;
     RectTransform rect;
     public AudioSource audioSource;
+    private bool isTriggering = false;
 
     void Start()
     {
@@ -52,8 +53,12 @@ public class ButtonTrigger : MonoBehaviour
     }
     private void OnTriggerEnter2D(Collider2D other)
     {
+        if (isTriggering) return;
+        isTriggering = true;
+
         transform.DOScale(1.2f, 1).SetEase(Ease.OutCubic).OnComplete(() =>
         {
+            isTriggering = false;
             transform.DOScale(1, 0);
             btn.onClick.Invoke();
         });
@@ -61,6 +66,14 @@ public class ButtonTrigger : MonoBehaviour
 
     private void OnTriggerExit2D(Collider2D other)
     {
+        isTriggering = false;
+        transform.DOKill();
+        transform.DOScale(1, 0);
+    }
+
+    private void OnDisable()
+    {
+        isTriggering = false;
         transform.DOKill();
         transform.DOScale(1, 0);
     }

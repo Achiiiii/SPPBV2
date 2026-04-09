@@ -30,8 +30,8 @@ Material:
     m_Ints: []
     m_Floats:
     - _ColorMask: 15
-    - _GrainIntensity: 0.015
-    - _GrainSize: 100
+    - _GrainIntensity: 0.02
+    - _GrainSize: 1000
     - _GrainSpeed: 1
     - _LineOpacity: 1
     - _LineThreshold: 0.255

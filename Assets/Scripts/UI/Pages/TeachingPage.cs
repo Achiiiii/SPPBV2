@@ -632,10 +632,10 @@ namespace SPPB.UI.Pages
                     return "請坐在椅子上，雙手交叉抱胸，連續站立並坐下5次";
 
                 case FlowStep.WalkIntro:
-                    return "請以平常走路的速度，向後方行走3公尺";
+                    return "請以平常走路的速度，向前方行走3公尺";
 
                 case FlowStep.Walk_Teaching:
-                    return "請以平常走路的速度，向後方行走3公尺";
+                    return "請以平常走路的速度，向前方行走3公尺";
 
                 default:
                     return "";

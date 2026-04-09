@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 using SPPB.Core;
 using SPPB.Data;
 using SPPB.UI.Components;
@@ -48,6 +49,18 @@ namespace SPPB.UI.Pages
         [SerializeField] private Image _hintImage_Countdown1;
         [SerializeField] private Image _hintImage_TestStart;
 
+        [Header("Action Feedback Hint Images")]
+        [SerializeField] private Image _hintImage_ActionCorrect;
+
+        [Header("Action Feedback Animation")]
+        [SerializeField] private float _actionCorrectDisplayDuration = 1.5f;
+        [SerializeField] private float _actionWrongDisplayDuration = 1.0f;
+        [SerializeField] private float _actionHintScaleDuration = 0.25f;
+        [SerializeField] private float _actionHintScaleOvershoot = 1.25f;
+        [SerializeField] private float _actionHintFadeDuration = 0.3f;
+        [SerializeField] private float _correctBreathPeriod = 1.5f;
+        [SerializeField] private float _correctBreathMinAlpha = 0.4f;
+
         [Header("Test Complete Hint Images (Per Test)")]
         [SerializeField] private Image _hintImage_APoseSuccess;
         [SerializeField] private Image _hintImage_BalanceSideBySide_Complete;
@@ -73,6 +86,11 @@ namespace SPPB.UI.Pages
         [SerializeField] public VideoPoseTest videoPoseTest;
         [SerializeField] public MotionSDKClient motionSDKClient;
 
+        [Header("Walk Progress Bar")]
+        [SerializeField] private GameObject _walkProgressBarRoot;
+        [SerializeField] private Image _walkProgressBarFill;
+        [SerializeField] private TextMeshProUGUI _walkDistanceText;
+
         // Current step
         private FlowStep _currentStep;
 
@@ -95,9 +113,18 @@ namespace SPPB.UI.Pages
         // GO hint fade out coroutine
         private Coroutine _goFadeOutCoroutine;
 
+        // Action feedback coroutine
+        private Coroutine _actionFeedbackCoroutine;
+        private Coroutine _balanceHintCoroutine;
+
         private bool _isCalibrate = true;
         private UnityAction<bool> _nuwaCompleteCallback = null;
         private string _nuwaText = "";
+
+        // Walk progress bar
+        private Material _walkProgressBarMatInstance;
+        private static readonly int WalkFillAmountId = Shader.PropertyToID("_FillAmount");
+        private const float WALK_MAX_DISTANCE = 300f; // diff 範圍 0~300 (diff_raw/10, PDF p.9)
 
         /// <summary>
         /// Test state enumeration
@@ -119,6 +146,7 @@ namespace SPPB.UI.Pages
             CacheHintImageOriginalScale(_hintImage_Countdown2);
             CacheHintImageOriginalScale(_hintImage_Countdown1);
             CacheHintImageOriginalScale(_hintImage_TestStart);
+            CacheHintImageOriginalScale(_hintImage_ActionCorrect);
             CacheHintImageOriginalScale(_hintImage_APoseSuccess);
             CacheHintImageOriginalScale(_hintImage_BalanceSideBySide_Complete);
             CacheHintImageOriginalScale(_hintImage_BalanceSemiTandem_Complete);
@@ -128,6 +156,9 @@ namespace SPPB.UI.Pages
 
             // Ensure all hint images are initially hidden
             HideAllHintImages();
+
+            // Initialize walk progress bar material
+            InitializeWalkProgressBar();
         }
 
         /// <summary>
@@ -169,6 +200,12 @@ namespace SPPB.UI.Pages
         {
             base.OnPageExit();
             ResetTestState();
+        }
+
+        private void OnDestroy()
+        {
+            if (_walkProgressBarMatInstance != null)
+                Destroy(_walkProgressBarMatInstance);
         }
 
         private void OnCalibrateAction(bool value)
@@ -290,7 +327,7 @@ namespace SPPB.UI.Pages
 
                 case FlowStep.Walk_Test:
                     ShowTestIcon(_iconImage_Walk);
-                    ShowTimer();
+                    ShowWalkProgressBar();
                     break;
             }
         }
@@ -304,6 +341,7 @@ namespace SPPB.UI.Pages
             HideAllTestIcons();
             HideTimer();
             HideCounter();
+            HideWalkProgressBar();
             HideAllHintImages();
         }
 
@@ -370,6 +408,56 @@ namespace SPPB.UI.Pages
             if (_counterDisplay != null)
             {
                 _counterDisplay.Hide();
+            }
+        }
+
+        private void InitializeWalkProgressBar()
+        {
+            if (_walkProgressBarFill == null) return;
+
+            Material sourceMaterial = _walkProgressBarFill.material;
+            if (sourceMaterial == null || sourceMaterial.shader.name == "UI/Default") return;
+
+            _walkProgressBarMatInstance = Instantiate(sourceMaterial);
+            _walkProgressBarFill.material = _walkProgressBarMatInstance;
+            _walkProgressBarMatInstance.SetFloat(WalkFillAmountId, 0f);
+        }
+
+        private void ShowWalkProgressBar()
+        {
+            if (_walkProgressBarRoot != null) _walkProgressBarRoot.SetActive(true);
+
+            if (_walkProgressBarMatInstance != null)
+                _walkProgressBarMatInstance.SetFloat(WalkFillAmountId, 0f);
+
+            if (_walkDistanceText != null)
+            {
+                _walkDistanceText.gameObject.SetActive(true);
+                _walkDistanceText.text = "0.00";
+            }
+        }
+
+        private void HideWalkProgressBar()
+        {
+            if (_walkProgressBarRoot != null) _walkProgressBarRoot.SetActive(false);
+
+            if (_walkDistanceText != null)
+                _walkDistanceText.gameObject.SetActive(false);
+        }
+
+        public void UpdateWalkProgress(float diff)
+        {
+            if (_testState != TestState.Testing || _currentStep != FlowStep.Walk_Test) return;
+
+            float fill = Mathf.Clamp01(diff / WALK_MAX_DISTANCE);
+            if (_walkProgressBarMatInstance != null)
+                _walkProgressBarMatInstance.SetFloat(WalkFillAmountId, fill);
+
+            // 更新距離文字 (diff 0~300 → 公尺 0~3.00)
+            if (_walkDistanceText != null)
+            {
+                float meters = Mathf.Clamp(diff / 100f, 0f, 3f);
+                _walkDistanceText.text = meters.ToString("F2");
             }
         }
 
@@ -443,6 +531,17 @@ namespace SPPB.UI.Pages
             HideAndRestoreHintImage(_hintImage_Countdown2);
             HideAndRestoreHintImage(_hintImage_Countdown1);
             HideAndRestoreHintImage(_hintImage_TestStart);
+            if (_actionFeedbackCoroutine != null)
+            {
+                StopCoroutine(_actionFeedbackCoroutine);
+                _actionFeedbackCoroutine = null;
+            }
+            if (_balanceHintCoroutine != null)
+            {
+                StopCoroutine(_balanceHintCoroutine);
+                _balanceHintCoroutine = null;
+            }
+            HideAndRestoreHintImage(_hintImage_ActionCorrect);
             HideAndRestoreHintImage(_hintImage_APoseSuccess);
             HideAndRestoreHintImage(_hintImage_BalanceSideBySide_Complete);
             HideAndRestoreHintImage(_hintImage_BalanceSemiTandem_Complete);
@@ -727,7 +826,6 @@ namespace SPPB.UI.Pages
                     break;
 
                 case FlowStep.SitStand_Test:
-                    // Sit-stand test: countdown
                     motionSDKClient.start3_single = true;
                     _timer = _sitStandMaxDuration;
                     if (_counterDisplay != null)
@@ -738,7 +836,6 @@ namespace SPPB.UI.Pages
 
                 case FlowStep.Walk_Test:
                     motionSDKClient.start2_single = true;
-                    // Walk test: countdown
                     _timer = _walkMaxDuration;
                     break;
             }
@@ -804,6 +901,21 @@ namespace SPPB.UI.Pages
         {
             motionSDKClient.end = true;
             _testState = TestState.Completed;
+            HideWalkProgressBar();
+
+            // 清除動作提示
+            if (_actionFeedbackCoroutine != null)
+            {
+                StopCoroutine(_actionFeedbackCoroutine);
+                _actionFeedbackCoroutine = null;
+            }
+            if (_balanceHintCoroutine != null)
+            {
+                StopCoroutine(_balanceHintCoroutine);
+                _balanceHintCoroutine = null;
+            }
+            HideAndRestoreHintImage(_hintImage_ActionCorrect);
+
             ShowHintImage(GetTestCompleteImage());
 
             // Save score to ScoreManager
@@ -853,6 +965,18 @@ namespace SPPB.UI.Pages
                 StopCoroutine(_goFadeOutCoroutine);
                 _goFadeOutCoroutine = null;
             }
+
+            // Cancel action feedback coroutine
+            if (_actionFeedbackCoroutine != null)
+            {
+                StopCoroutine(_actionFeedbackCoroutine);
+                _actionFeedbackCoroutine = null;
+            }
+            if (_balanceHintCoroutine != null)
+            {
+                StopCoroutine(_balanceHintCoroutine);
+                _balanceHintCoroutine = null;
+            }
         }
 
         /// <summary>
@@ -878,6 +1002,147 @@ namespace SPPB.UI.Pages
             {
                 CompleteTest();
             }
+        }
+
+        /// <summary>
+        /// 立即隱藏正確提示（由 MotionSDKClient 在姿勢離開正確狀態時呼叫）
+        /// </summary>
+        public void HideCorrectHint()
+        {
+            if (_actionFeedbackCoroutine != null)
+            {
+                StopCoroutine(_actionFeedbackCoroutine);
+                _actionFeedbackCoroutine = null;
+            }
+            if (_balanceHintCoroutine != null)
+            {
+                StopCoroutine(_balanceHintCoroutine);
+                _balanceHintCoroutine = null;
+            }
+            HideAndRestoreHintImage(_hintImage_ActionCorrect);
+        }
+
+        /// <summary>
+        /// 動作提示（由 MotionSDKClient 呼叫）
+        /// </summary>
+        public void OnActionFeedback(bool isCorrect, float score)
+        {
+            if (_testState != TestState.Testing) return;
+            if (!isCorrect) return;
+
+            if (_actionFeedbackCoroutine != null)
+                StopCoroutine(_actionFeedbackCoroutine);
+            if (_balanceHintCoroutine != null)
+                StopCoroutine(_balanceHintCoroutine);
+
+            _actionFeedbackCoroutine = StartCoroutine(ActionFeedbackCoroutine(_hintImage_ActionCorrect, true));
+        }
+
+        private IEnumerator ActionFeedbackCoroutine(Image hintImage, bool isCorrect)
+        {
+            if (hintImage == null) yield break;
+
+
+            // 若有 HintFill shader，設定 FillAmount 初始值
+            Material mat = hintImage.material;
+            if (mat != null && mat.HasProperty("_FillAmount"))
+            {
+                if (!hintImage.material.name.Contains("(Instance)"))
+                    hintImage.material = new Material(mat);
+                mat = hintImage.material;
+                mat.SetFloat("_FillAmount", isCorrect ? 1f : 0f);
+            }
+            else mat = null;
+
+            // 初始化
+            hintImage.transform.localScale = Vector3.zero;
+            CanvasGroup cg = hintImage.GetComponent<CanvasGroup>();
+            if (cg != null) cg.alpha = 1f;
+            RestoreHintImageColor(hintImage);
+            hintImage.gameObject.SetActive(true);
+
+            Vector3 originalScale = GetHintOriginalScale(hintImage);
+            Vector3 overshootScale = originalScale * _actionHintScaleOvershoot;
+
+            // Phase 1：縮放上升至 overshoot（easeOutQuad）
+            float elapsed = 0f;
+            float upDur = _actionHintScaleDuration * 0.4f;
+            while (elapsed < upDur)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = 1f - Mathf.Pow(1f - Mathf.Clamp01(elapsed / upDur), 2f);
+                hintImage.transform.localScale = Vector3.Lerp(Vector3.zero, overshootScale, t);
+                yield return null;
+            }
+
+            // Phase 2：彈回原始大小（easeOutElastic）
+            elapsed = 0f;
+            float downDur = _actionHintScaleDuration * 0.6f;
+            while (elapsed < downDur)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = ActionEaseOutElastic(Mathf.Clamp01(elapsed / downDur));
+                hintImage.transform.localScale = Vector3.Lerp(overshootScale, originalScale, t);
+                yield return null;
+            }
+            hintImage.transform.localScale = originalScale;
+
+            if (isCorrect)
+            {
+                // 正確提示：FillAmount 從 1 倒數到 0（對應 10 秒測驗），同時呼吸閃爍效果
+                Color baseColor = GetHintOriginalColor(hintImage);
+                float fillElapsed = 0f;
+                float breathTime = 0f;
+
+                while (true)
+                {
+                    fillElapsed += Time.unscaledDeltaTime;
+                    breathTime += Time.unscaledDeltaTime;
+
+                    // FillAmount：1 → 0，持續 _balanceTestDuration 秒
+                    if (mat != null)
+                        mat.SetFloat("_FillAmount", Mathf.Clamp01(1f - fillElapsed / _balanceTestDuration));
+
+                    // 呼吸閃爍：alpha 在 _correctBreathMinAlpha ~ 1 之間 sin 波動
+                    float breathAlpha = Mathf.Lerp(_correctBreathMinAlpha, 1f,
+                        (Mathf.Sin(2f * Mathf.PI * breathTime / _correctBreathPeriod) + 1f) * 0.5f);
+                    if (cg != null)
+                        cg.alpha = breathAlpha;
+                    else
+                        hintImage.color = new Color(baseColor.r, baseColor.g, baseColor.b, baseColor.a * breathAlpha);
+
+                    yield return null;
+                }
+            }
+            else
+            {
+                // 錯誤提示：等待後淡出消失
+                yield return new WaitForSecondsRealtime(_actionWrongDisplayDuration);
+
+                elapsed = 0f;
+                while (elapsed < _actionHintFadeDuration)
+                {
+                    elapsed += Time.unscaledDeltaTime;
+                    float t = Mathf.Clamp01(elapsed / _actionHintFadeDuration);
+                    if (cg != null) cg.alpha = 1f - t;
+                    else hintImage.color = new Color(hintImage.color.r, hintImage.color.g, hintImage.color.b, 1f - t);
+                    yield return null;
+                }
+
+                hintImage.gameObject.SetActive(false);
+                if (cg != null) cg.alpha = 1f;
+                RestoreHintImageColor(hintImage);
+            }
+
+            _actionFeedbackCoroutine = null;
+        }
+
+        private float ActionEaseOutElastic(float t)
+        {
+            if (t <= 0f) return 0f;
+            if (t >= 1f) return 1f;
+            const float c4 = (2f * Mathf.PI) / 3f;
+            return Mathf.Pow(2f, -10f * t) * Mathf.Sin((t * 10f - 0.75f) * c4) + 1f;
         }
 
         /// <summary>
