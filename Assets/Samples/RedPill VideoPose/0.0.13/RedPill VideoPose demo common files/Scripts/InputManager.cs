@@ -162,7 +162,8 @@ class CameraInput : IInput
 		webcam = new WebCamTexture(deviceName, (int)res.x, (int)res.y, 30)
 		{
 			name = "WebCamTexture",
-			filterMode = FilterMode.Point
+			filterMode = FilterMode.Point,
+			autoFocusPoint = new Vector2(0.5f, 0.5f)
 		};
 		webcam.Play();
 		while (webcam.width == 16 && webcam.height == 16)
