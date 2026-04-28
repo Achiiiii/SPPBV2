@@ -44,7 +44,7 @@ Material:
     - _FBMScale: 0.6
     - _FBMSpeed: 1
     - _FBMTintStrength: 0.506
-    - _FillAmount: 1
+    - _FillAmount: 0.018210817
     - _FillDirection: 0
     - _GlowIntensity: 5
     - _GlowPulseSpeed: 3.86

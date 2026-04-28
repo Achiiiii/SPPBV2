@@ -37,6 +37,11 @@ public class MotionSDKClient : MonoBehaviour
     private bool _balanceIsCorrect = false;  // 目前是否正在顯示正確提示
     private const float BALANCE_VIOLATION_TIMEOUT = 0.5f;
 
+    // 捕捉 state 第一次變 0 的那一幀的 score/elapsed（SDK 結束後會把值重置成 0，debounce 之後才讀就晚了）
+    private bool _finalSnapshotTaken = false;
+    private float _finalScoreSnapshot = 0f;
+    private float _finalElapsedSnapshot = 0f;
+
 #if UNITY_ANDROID && !UNITY_EDITOR
     const string LIB_NAME = "motion_sdk";   // Android .so
 #else
@@ -51,8 +56,19 @@ public class MotionSDKClient : MonoBehaviour
 
     void Start()
     {
-        initialize();
-        Debug.Log("✅ Motion SDK initialized.");
+        try
+        {
+            initialize();
+            Debug.Log("✅ Motion SDK initialized.");
+        }
+        catch (DllNotFoundException e)
+        {
+            Debug.LogError($"❌ Motion SDK DLL not found: {e.Message}. 請確認 motion_sdk.dll 的 Editor 平台已啟用。");
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"❌ Motion SDK initialize failed: {e.Message}");
+        }
     }
 
     void Update()
@@ -126,6 +142,11 @@ public class MotionSDKClient : MonoBehaviour
         _noCorrectTimer = 0f;
         _testStartTime = Time.time;
         _walkHintShown = false;
+        _finalSnapshotTaken = false;
+        _finalScoreSnapshot = 0f;
+        _finalElapsedSnapshot = 0f;
+        _balanceViolationTimer = 0f;
+        _balanceIsCorrect = false;
         Debug.Log($"▶️ 測驗 {type} 開始");
     }
 
@@ -138,13 +159,13 @@ public class MotionSDKClient : MonoBehaviour
         {
             case 1:
             case 2:
-                Debug.Log($"{{ \"type\":{r.type}, \"bdis\":{r.bdis:F2}, \"fdis\":{r.fdis:F2}, \"score\":{r.score}, \"state\":{r.state}, \"elapsed\":{r.elapsed:F2} }}");
+                Debug.Log($"{{ \"type\":{r.type}, \"fdis_norm\":{r.fdis_norm:F2}, \"score\":{r.score}, \"state\":{r.state}, \"elapsed\":{r.elapsed:F2} }}");
                 break;
             case 3:
-                Debug.Log($"{{ \"type\":{r.type}, \"score\":{r.score}, \"state\":{r.state}, \"elapsed\":{r.elapsed:F2} }}");
+                Debug.Log($"{{ \"type\":{r.type}, \"dd_norm\":{r.dd_norm:F2}, \"fdis_norm\":{r.fdis_norm:F2}, \"score\":{r.score}, \"state\":{r.state}, \"elapsed\":{r.elapsed:F2} }}");
                 break;
             case 4:
-                Debug.Log($"{{ \"type\":{r.type}, \"diff\":{r.diff:F2}, \"score\":{r.score}, \"state\":{r.state}, \"elapsed\":{r.elapsed:F2} }}");
+                Debug.Log($"{{ \"type\":{r.type}, \"diff_norm\":{r.diff_norm:F2}, \"score\":{r.score}, \"state\":{r.state}, \"elapsed\":{r.elapsed:F2} }}");
                 break;
             case 5:
                 int sitVal = r.sit_count > 0 ? r.sit_count : r.sit;
@@ -204,10 +225,21 @@ public class MotionSDKClient : MonoBehaviour
                 }
 
                 // 更新步行進度條
-                _testPage.UpdateWalkProgress(r.diff);
+                _testPage.UpdateWalkProgress(r.diff_norm);
             }
 
             _previousState = r.state;
+        }
+
+        // 在 state 第一次變 0 的那一幀捕捉最終 score/elapsed
+        // （SDK 結束後會把回傳值重置為 0，debounce 等 0.5 秒後再讀就拿不到真正的分數）
+        if (isRunning && !_finalSnapshotTaken && r.state == 0 && currentTest != 0
+            && (Time.time - _testStartTime) >= FINISHED_GRACE)
+        {
+            _finalScoreSnapshot = r.score;
+            _finalElapsedSnapshot = r.elapsed;
+            _finalSnapshotTaken = true;
+            Debug.Log($"[Snapshot] type={currentTest}, score={r.score}, elapsed={r.elapsed:F2}");
         }
 
         if (isRunning && !testFinishedPrinted && (Time.time - _testStartTime) >= FINISHED_GRACE)
@@ -219,12 +251,18 @@ public class MotionSDKClient : MonoBehaviour
 
             if (finished)
             {
-                Debug.Log($"[結束] type={currentTest}, score={r.score}, elapsed={r.elapsed:F2}");
+                // 使用 snapshot 的值（state 第一次變 0 那幀捕捉到的真正分數），而不是現在已被 SDK 重置為 0 的值
+                float finalScore = _finalSnapshotTaken ? _finalScoreSnapshot : r.score;
+                float finalElapsed = _finalSnapshotTaken ? _finalElapsedSnapshot : r.elapsed;
+
+                Debug.Log($"[結束] type={currentTest}, score={finalScore}, elapsed={finalElapsed:F2} (snapshot={_finalSnapshotTaken})");
                 testFinishedPrinted = true;
 
-                // 步行測試由 SDK 偵測完成（走滿 3 公尺）→ 通知 TestPage 結束
+                // 由 SDK state=0 驅動各測驗結束
                 if (currentTest == 4)
                     _testPage.OnWalkTestComplete();
+                else if (currentTest >= 1 && currentTest <= 3)
+                    _testPage.OnBalanceTestComplete(finalScore, finalElapsed);
 
                 isRunning = false;
                 currentTest = 0;
@@ -265,10 +303,10 @@ public class MotionSDKClient : MonoBehaviour
         public int sit_count;   // type 5 深蹲次數（PDF 原名）
         public int sit;         // 相容舊版欄位名稱
         public float score;     // 分數
-        public float bdis;      // type 1/2 後退距離
-        public float fdis;      // type 1/2 前傾距離
         public float elapsed;   // 已用時間（秒）
-        public float diff;      // 步行測試進度（0~300, diff_raw/10）
+        public float diff_norm;    // 步行測試進度（實際使用欄位）
+        public float fdis_norm;
+        public float dd_norm;
     }
 
 

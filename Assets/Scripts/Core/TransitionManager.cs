@@ -79,14 +79,15 @@ namespace SPPB.Core
         /// Full transition effect: Fade to black → Execute action → Fade from black
         /// </summary>
         /// <param name="onBlackScreen">Action to execute during black screen (e.g., switch pages)</param>
-        public void TransitionBetweenPages(Action onBlackScreen)
+        /// <param name="onComplete">Action to execute after the entire transition completes</param>
+        public void TransitionBetweenPages(Action onBlackScreen, Action onComplete = null)
         {
             if (_currentTransition != null)
             {
                 StopCoroutine(_currentTransition);
             }
 
-            _currentTransition = StartCoroutine(TransitionCoroutine(onBlackScreen));
+            _currentTransition = StartCoroutine(TransitionCoroutine(onBlackScreen, onComplete));
         }
 
         /// <summary>
@@ -175,7 +176,7 @@ namespace SPPB.Core
             onComplete?.Invoke();
         }
 
-        private IEnumerator TransitionCoroutine(Action onBlackScreen)
+        private IEnumerator TransitionCoroutine(Action onBlackScreen, Action onComplete = null)
         {
             // Phase 1: Fade to black
             yield return FadeToBlackCoroutine(null);
@@ -185,6 +186,9 @@ namespace SPPB.Core
 
             // Phase 3: Fade from black
             yield return FadeFromBlackCoroutine(null);
+
+            // Phase 4: Notify transition complete
+            onComplete?.Invoke();
         }
 
         #endregion

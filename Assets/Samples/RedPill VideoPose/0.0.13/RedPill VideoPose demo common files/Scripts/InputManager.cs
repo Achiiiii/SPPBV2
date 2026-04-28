@@ -178,14 +178,14 @@ class CameraInput : IInput
 	}
 	public override void Update()
 	{
-		try
-		{
-			// if (webcam.didUpdateThisFrame)
+		try{
+		// if (webcam.didUpdateThisFrame)
 			OnNewFrame(new ImageBuffer(webcam.updateCount, transformed.GetPixels32(), transformed.width, transformed.height));
 			webcam.IncrementUpdateCount();
+			if (webcam.updateCount % 120 == 0)//新增這裡，每120個frame重新對焦一次
+			webcam.autoFocusPoint = new Vector2(0.5f, 0.5f);
 		}
-		catch (NullReferenceException e)
-		{
+		catch(NullReferenceException e){
 			Debug.Log(e);
 		}
 	}

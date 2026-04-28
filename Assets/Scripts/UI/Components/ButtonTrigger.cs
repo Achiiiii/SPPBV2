@@ -58,8 +58,8 @@ public class ButtonTrigger : MonoBehaviour
 
         transform.DOScale(1.2f, 1).SetEase(Ease.OutCubic).OnComplete(() =>
         {
-            isTriggering = false;
-            transform.DOScale(1, 0);
+            transform.localScale = Vector3.one;
+            this.gameObject.SetActive(false);
             btn.onClick.Invoke();
         });
     }
@@ -68,14 +68,14 @@ public class ButtonTrigger : MonoBehaviour
     {
         isTriggering = false;
         transform.DOKill();
-        transform.DOScale(1, 0);
+        transform.localScale = Vector3.one;
     }
 
     private void OnDisable()
     {
         isTriggering = false;
         transform.DOKill();
-        transform.DOScale(1, 0);
+        transform.localScale = Vector3.one;
     }
     private void ClickAudio()
     {

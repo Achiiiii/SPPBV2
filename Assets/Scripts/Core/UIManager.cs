@@ -23,6 +23,11 @@ namespace SPPB.Core
         private BasePage _currentPage;
 
         /// <summary>
+        /// 頁面轉場鎖定旗標，防止轉場期間重複觸發 NextStep/GoToStep
+        /// </summary>
+        private bool _isTransitioning = false;
+
+        /// <summary>
         /// Current flow step
         /// </summary>
         public FlowStep CurrentStep => _currentStep;
@@ -49,6 +54,12 @@ namespace SPPB.Core
         /// </summary>
         public void NextStep()
         {
+            if (_isTransitioning)
+            {
+                Debug.Log("[UIManager] NextStep blocked: transition in progress");
+                return;
+            }
+
             int nextIndex = (int)_currentStep + 1;
             int maxIndex = Enum.GetValues(typeof(FlowStep)).Length - 1;
 
@@ -68,6 +79,14 @@ namespace SPPB.Core
         /// </summary>
         public void GoToStep(FlowStep step)
         {
+            if (_isTransitioning)
+            {
+                Debug.Log($"[UIManager] GoToStep({step}) blocked: transition in progress");
+                return;
+            }
+
+            _isTransitioning = true;
+
             FlowStep previousStep = _currentStep;
             _currentStep = step;
 
@@ -83,6 +102,8 @@ namespace SPPB.Core
         /// </summary>
         public void GoHome()
         {
+            // GoHome 強制解鎖，確保隨時可以回首頁
+            _isTransitioning = false;
             GoToStep(FlowStep.Home);
             motionSDKClient.ResetMotionSDK();
         }
@@ -102,15 +123,18 @@ namespace SPPB.Core
             if (needsTransition && TransitionManager.Instance != null)
             {
                 // Use black screen transition (switch pages during blackout)
-                TransitionManager.Instance.TransitionBetweenPages(() =>
-                {
-                    PerformPageSwitchDuringTransition(targetPage, step);
-                });
+                // 轉場完成後解鎖
+                TransitionManager.Instance.TransitionBetweenPages(
+                    () => PerformPageSwitchDuringTransition(targetPage, step),
+                    () => _isTransitioning = false
+                );
             }
             else
             {
                 // Switch pages directly (using page's own fade effects)
                 PerformNormalPageSwitch(targetPage, step);
+                // 同步切換完成，立即解鎖
+                _isTransitioning = false;
             }
         }
 

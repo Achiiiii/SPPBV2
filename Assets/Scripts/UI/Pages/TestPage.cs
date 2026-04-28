@@ -68,10 +68,12 @@ namespace SPPB.UI.Pages
         [SerializeField] private Image _hintImage_BalanceTandem_Complete;
         [SerializeField] private Image _hintImage_SitStand_Complete;
         [SerializeField] private Image _hintImage_Walk_Complete;
+        [SerializeField] private Image _hintImage_BalanceFailed;
 
         [Header("Test Settings")]
         [SerializeField] private float _countdownDuration = 3f;
         [SerializeField] private float _balanceTestDuration = 10f;
+        [SerializeField] private float _balanceSafetyTimeout = 15f;
         [SerializeField] private int _sitStandTargetCount = 5;
         [SerializeField] private float _sitStandMaxDuration = 60f;
         [SerializeField] private float _walkMaxDuration = 60f;
@@ -97,6 +99,8 @@ namespace SPPB.UI.Pages
         // Test state
         private TestState _testState = TestState.Idle;
         private float _timer = 0f;
+        private float _balanceSafetyTimer = 0f;
+        private bool _balanceFailed = false;
         private int _sitStandCount = 0;
         private int _lastCountdown = -1;
 
@@ -122,7 +126,6 @@ namespace SPPB.UI.Pages
         private string _nuwaText = "";
 
         // Walk progress bar
-        private Material _walkProgressBarMatInstance;
         private static readonly int WalkFillAmountId = Shader.PropertyToID("_FillAmount");
         private const float WALK_MAX_DISTANCE = 300f; // diff 範圍 0~300 (diff_raw/10, PDF p.9)
 
@@ -153,12 +156,10 @@ namespace SPPB.UI.Pages
             CacheHintImageOriginalScale(_hintImage_BalanceTandem_Complete);
             CacheHintImageOriginalScale(_hintImage_SitStand_Complete);
             CacheHintImageOriginalScale(_hintImage_Walk_Complete);
+            CacheHintImageOriginalScale(_hintImage_BalanceFailed);
 
             // Ensure all hint images are initially hidden
             HideAllHintImages();
-
-            // Initialize walk progress bar material
-            InitializeWalkProgressBar();
         }
 
         /// <summary>
@@ -200,12 +201,6 @@ namespace SPPB.UI.Pages
         {
             base.OnPageExit();
             ResetTestState();
-        }
-
-        private void OnDestroy()
-        {
-            if (_walkProgressBarMatInstance != null)
-                Destroy(_walkProgressBarMatInstance);
         }
 
         private void OnCalibrateAction(bool value)
@@ -411,24 +406,18 @@ namespace SPPB.UI.Pages
             }
         }
 
-        private void InitializeWalkProgressBar()
+        private void SetWalkBarFill(float fill)
         {
-            if (_walkProgressBarFill == null) return;
-
-            Material sourceMaterial = _walkProgressBarFill.material;
-            if (sourceMaterial == null || sourceMaterial.shader.name == "UI/Default") return;
-
-            _walkProgressBarMatInstance = Instantiate(sourceMaterial);
-            _walkProgressBarFill.material = _walkProgressBarMatInstance;
-            _walkProgressBarMatInstance.SetFloat(WalkFillAmountId, 0f);
+            // 用 CanvasRenderer.GetMaterial() 才是 Image 當下 render 用的 material instance
+            if (_walkProgressBarFill == null || _walkProgressBarFill.canvasRenderer == null) return;
+            var mat = _walkProgressBarFill.canvasRenderer.GetMaterial();
+            if (mat != null) mat.SetFloat(WalkFillAmountId, fill);
         }
 
         private void ShowWalkProgressBar()
         {
             if (_walkProgressBarRoot != null) _walkProgressBarRoot.SetActive(true);
-
-            if (_walkProgressBarMatInstance != null)
-                _walkProgressBarMatInstance.SetFloat(WalkFillAmountId, 0f);
+            SetWalkBarFill(0f);
 
             if (_walkDistanceText != null)
             {
@@ -450,10 +439,8 @@ namespace SPPB.UI.Pages
             if (_testState != TestState.Testing || _currentStep != FlowStep.Walk_Test) return;
 
             float fill = Mathf.Clamp01(diff / WALK_MAX_DISTANCE);
-            if (_walkProgressBarMatInstance != null)
-                _walkProgressBarMatInstance.SetFloat(WalkFillAmountId, fill);
+            SetWalkBarFill(fill);
 
-            // 更新距離文字 (diff 0~300 → 公尺 0~3.00)
             if (_walkDistanceText != null)
             {
                 float meters = Mathf.Clamp(diff / 100f, 0f, 3f);
@@ -513,7 +500,8 @@ namespace SPPB.UI.Pages
                    hintImage == _hintImage_BalanceSemiTandem_Complete ||
                    hintImage == _hintImage_BalanceTandem_Complete ||
                    hintImage == _hintImage_SitStand_Complete ||
-                   hintImage == _hintImage_Walk_Complete;
+                   hintImage == _hintImage_Walk_Complete ||
+                   hintImage == _hintImage_BalanceFailed;
         }
 
         /// <summary>
@@ -548,6 +536,7 @@ namespace SPPB.UI.Pages
             HideAndRestoreHintImage(_hintImage_BalanceTandem_Complete);
             HideAndRestoreHintImage(_hintImage_SitStand_Complete);
             HideAndRestoreHintImage(_hintImage_Walk_Complete);
+            HideAndRestoreHintImage(_hintImage_BalanceFailed);
 
             _currentHintImage = null;
             _isHintAnimating = false;
@@ -647,6 +636,19 @@ namespace SPPB.UI.Pages
             }
         }
 
+        /// 依照測驗結果回傳對應 hint（平衡測試失敗時顯示失敗圖）
+        private Image GetResultHintImage()
+        {
+            bool isBalance = _currentStep == FlowStep.BalanceSideBySide_Test
+                          || _currentStep == FlowStep.BalanceSemiTandem_Test
+                          || _currentStep == FlowStep.BalanceTandem_Test;
+
+            if (isBalance && _balanceFailed)
+                return _hintImage_BalanceFailed;
+
+            return GetTestCompleteImage();
+        }
+
         private string GetCompleteTestText()
         {
             switch (_currentStep)
@@ -701,8 +703,8 @@ namespace SPPB.UI.Pages
                 case FlowStep.BalanceSideBySide_Test:
                 case FlowStep.BalanceSemiTandem_Test:
                 case FlowStep.BalanceTandem_Test:
-                    // Balance test: countdown, bar fills from empty to full
-                    _timerDisplay.Initialize(_balanceTestDuration, true, false);
+                    // Balance test: count up (0→10s), bar fills from empty to full
+                    _timerDisplay.Initialize(_balanceTestDuration, false, false);
                     break;
 
                 case FlowStep.SitStand_Test:
@@ -812,17 +814,23 @@ namespace SPPB.UI.Pages
             {
                 case FlowStep.BalanceSideBySide_Test:
                     motionSDKClient.start1_1_single = true;
-                    _timer = _balanceTestDuration;
+                    _timer = 0f;
+                    _balanceSafetyTimer = 0f;
+                    _balanceFailed = false;
                     break;
 
                 case FlowStep.BalanceSemiTandem_Test:
                     motionSDKClient.start1_2_single = true;
-                    _timer = _balanceTestDuration;
+                    _timer = 0f;
+                    _balanceSafetyTimer = 0f;
+                    _balanceFailed = false;
                     break;
 
                 case FlowStep.BalanceTandem_Test:
                     motionSDKClient.start1_3_single = true;
-                    _timer = _balanceTestDuration;
+                    _timer = 0f;
+                    _balanceSafetyTimer = 0f;
+                    _balanceFailed = false;
                     break;
 
                 case FlowStep.SitStand_Test:
@@ -857,11 +865,16 @@ namespace SPPB.UI.Pages
                 case FlowStep.BalanceSideBySide_Test:
                 case FlowStep.BalanceSemiTandem_Test:
                 case FlowStep.BalanceTandem_Test:
-                    // Balance test: countdown
-                    _timer -= Time.deltaTime;
-                    if (_timer <= TIMER_EPSILON)
+                    // Balance: Unity _timer 改為累計時數 (0 → 10s 顯示)；結束由 SDK state=0 觸發 OnBalanceTestComplete。
+                    // _balanceSafetyTimer 是防呆：若 SDK 異常未回應就強制結束。
+                    _timer += Time.deltaTime;
+                    if (_timer > _balanceTestDuration) _timer = _balanceTestDuration;
+
+                    _balanceSafetyTimer += Time.deltaTime;
+                    if (_balanceSafetyTimer >= _balanceSafetyTimeout)
                     {
-                        _timer = 0f;
+                        Debug.LogWarning($"[Balance] Safety timeout ({_balanceSafetyTimeout}s) — 強制結束");
+                        _balanceFailed = true;
                         CompleteTest();
                     }
                     break;
@@ -916,7 +929,7 @@ namespace SPPB.UI.Pages
             }
             HideAndRestoreHintImage(_hintImage_ActionCorrect);
 
-            ShowHintImage(GetTestCompleteImage());
+            ShowHintImage(GetResultHintImage());
 
             // Save score to ScoreManager
             SaveScoreToManager();
@@ -1166,6 +1179,21 @@ namespace SPPB.UI.Pages
             if (_testState != TestState.Testing || _currentStep != FlowStep.Walk_Test)
                 return;
 
+            CompleteTest();
+        }
+
+        /// Balance test complete (由 SDK state=0 觸發)
+        public void OnBalanceTestComplete(float sdkScore, float sdkElapsed)
+        {
+            if (_testState != TestState.Testing) return;
+            if (_currentStep != FlowStep.BalanceSideBySide_Test &&
+                _currentStep != FlowStep.BalanceSemiTandem_Test &&
+                _currentStep != FlowStep.BalanceTandem_Test)
+                return;
+
+            // 以 SDK 回傳的 elapsed + score 為準：SDK 判定成功（score>0 或 elapsed>=10s）即顯示完成；否則顯示失敗
+            _balanceFailed = sdkScore <= 0f && sdkElapsed < _balanceTestDuration;
+            Debug.Log($"[Balance] complete — sdkScore={sdkScore}, sdkElapsed={sdkElapsed:F2}, failed={_balanceFailed}");
             CompleteTest();
         }
 
