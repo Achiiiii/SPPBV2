@@ -260,7 +260,7 @@ public class MotionSDKClient : MonoBehaviour
 
                 // 由 SDK state=0 驅動各測驗結束
                 if (currentTest == 4)
-                    _testPage.OnWalkTestComplete();
+                    _testPage.OnWalkTestComplete(finalScore);
                 else if (currentTest >= 1 && currentTest <= 3)
                     _testPage.OnBalanceTestComplete(finalScore, finalElapsed);
 
