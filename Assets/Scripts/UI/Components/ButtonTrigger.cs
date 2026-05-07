@@ -7,7 +7,6 @@ using UnityEngine.UI;
 public class ButtonTrigger : MonoBehaviour
 {
     Button btn;
-    Transform transform;
     RectTransform rect;
     public AudioSource audioSource;
     private bool isTriggering = false;
@@ -16,7 +15,6 @@ public class ButtonTrigger : MonoBehaviour
     {
         rect = gameObject.GetComponent<RectTransform>();
         btn = gameObject.GetComponent<Button>();
-        transform = gameObject.GetComponent<Transform>();
         BoxCollider2D boxCollider = gameObject.AddComponent<BoxCollider2D>();
         float pivotX = rect.pivot.x;
         float pivotY = rect.pivot.y;

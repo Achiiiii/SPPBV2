@@ -117,13 +117,8 @@ public class MotionSDKClient : MonoBehaviour
             string scoreJson = Marshal.PtrToStringAnsi(get_score());
             ScoreData score = JsonUtility.FromJson<ScoreData>(scoreJson);
 
-            // 可用 JSON Utility 解析成物件後顯示分數
             Debug.Log("score: " + scoreJson);
             ScoreManager.Instance.SetAllScoresFromSDK(score.score1_1, score.score1_2, score.score1_3, score.score2, score.score3);
-            // sppb_script.test1_score.text = $"{score.score1_1 + score.score1_2 + score.score1_3}分";
-            // sppb_script.test2_score.text = $"{score.score2}分";
-            // sppb_script.test3_score.text = $"{score.score3}分";
-            // sppb_script.total_score.text = $"{score.total}分";
         }
     }
 

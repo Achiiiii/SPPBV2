@@ -38,7 +38,6 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.12731749, g: 0.13414757, b: 0.1210787, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -3103,7 +3102,7 @@ MonoBehaviour:
   _hintImage_Walk_Complete: {fileID: 4979519146975602848}
   _hintImage_BalanceFailed: {fileID: 1417261840}
   _countdownDuration: 3
-  _balanceTestDuration: 12
+  _balanceTestDuration: 10
   _balanceSafetyTimeout: 15
   _sitStandTargetCount: 5
   _sitStandMaxDuration: 60
@@ -3921,7 +3920,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!1 &925495618264406866
 GameObject:
   m_ObjectHideFlags: 0

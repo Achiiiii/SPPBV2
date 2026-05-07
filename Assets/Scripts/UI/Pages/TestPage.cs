@@ -969,6 +969,7 @@ namespace SPPB.UI.Pages
             _currentHintImage = null;
             _isHintAnimating = false;
             _isCalibrate = true;
+            _lastCountdown = -1;
             CancelInvoke(nameof(GoToNextStep));
             CancelInvoke(nameof(StartTesting));
 

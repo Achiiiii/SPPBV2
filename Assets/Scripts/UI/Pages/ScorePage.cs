@@ -89,6 +89,12 @@ namespace SPPB.UI.Pages
         private Vector2 _sitStandBarOriginalSize;
         private Vector2 _walkBarOriginalSize;
 
+        // Bar Material instances (controlled via _FillAmount shader property)
+        private Material _balanceBarMaterialInstance;
+        private Material _sitStandBarMaterialInstance;
+        private Material _walkBarMaterialInstance;
+        private const string BAR_FILL_PROPERTY = "_FillAmount";
+
         // Ring Material instance
         private Material _ringMaterialInstance;
 
@@ -116,12 +122,30 @@ namespace SPPB.UI.Pages
             InitializeBarFill(_sitStandBarFill, ref _sitStandBarOriginalSize);
             InitializeBarFill(_walkBarFill, ref _walkBarOriginalSize);
 
+            // Create Material instances for bar fills (each bar uses _FillAmount shader property)
+            _balanceBarMaterialInstance = CreateBarMaterialInstance(_balanceBarFill);
+            _sitStandBarMaterialInstance = CreateBarMaterialInstance(_sitStandBarFill);
+            _walkBarMaterialInstance = CreateBarMaterialInstance(_walkBarFill);
+
             // Create Material instance for Ring Fill (avoid modifying shared Material)
             if (_totalRingFill != null && _totalRingFill.material != null)
             {
                 _ringMaterialInstance = new Material(_totalRingFill.material);
                 _totalRingFill.material = _ringMaterialInstance;
             }
+        }
+
+        /// <summary>
+        /// Create a material instance for a bar fill Image, so _FillAmount can be set independently
+        /// </summary>
+        private Material CreateBarMaterialInstance(RectTransform barFill)
+        {
+            if (barFill == null) return null;
+            Image img = barFill.GetComponent<Image>();
+            if (img == null || img.material == null) return null;
+            var mat = new Material(img.material);
+            img.material = mat;
+            return mat;
         }
 
         /// <summary>
@@ -154,6 +178,12 @@ namespace SPPB.UI.Pages
         protected override void OnPageEnter()
         {
             base.OnPageEnter();
+
+            // 重新啟用 home 按鈕：ButtonTrigger 觸發後會 SetActive(false)，第二次進入頁面要復原
+            if (_homeButton != null)
+            {
+                _homeButton.gameObject.SetActive(true);
+            }
 
             // Load scores from ScoreManager
             LoadScoresFromManager();
@@ -201,11 +231,11 @@ namespace SPPB.UI.Pages
                 _homeButton.onClick.RemoveListener(OnHomeClicked);
             }
 
-            // Clean up Material instance
-            if (_ringMaterialInstance != null)
-            {
-                Destroy(_ringMaterialInstance);
-            }
+            // Clean up Material instances
+            if (_ringMaterialInstance != null) Destroy(_ringMaterialInstance);
+            if (_balanceBarMaterialInstance != null) Destroy(_balanceBarMaterialInstance);
+            if (_sitStandBarMaterialInstance != null) Destroy(_sitStandBarMaterialInstance);
+            if (_walkBarMaterialInstance != null) Destroy(_walkBarMaterialInstance);
         }
 
         /// <summary>
@@ -213,9 +243,9 @@ namespace SPPB.UI.Pages
         /// </summary>
         private void ResetAllBars()
         {
-            SetBarWidth(_balanceBarFill, 0f, _balanceBarOriginalSize);
-            SetBarWidth(_sitStandBarFill, 0f, _sitStandBarOriginalSize);
-            SetBarWidth(_walkBarFill, 0f, _walkBarOriginalSize);
+            if (_balanceBarMaterialInstance != null) _balanceBarMaterialInstance.SetFloat(BAR_FILL_PROPERTY, 0f);
+            if (_sitStandBarMaterialInstance != null) _sitStandBarMaterialInstance.SetFloat(BAR_FILL_PROPERTY, 0f);
+            if (_walkBarMaterialInstance != null) _walkBarMaterialInstance.SetFloat(BAR_FILL_PROPERTY, 0f);
 
             if (_ringMaterialInstance != null)
             {
@@ -257,17 +287,17 @@ namespace SPPB.UI.Pages
             float ringOverlapDelay = _ringAnimationDuration * 0.5f;
 
             // Start balance test animation + score pop
-            StartCoroutine(AnimateBar(_balanceBarFill, _balanceBarOriginalSize, _balanceScore));
+            StartCoroutine(AnimateBar(_balanceBarMaterialInstance, _balanceScore));
             StartCoroutine(AnimateScoreTextPop(_balanceScoreText));
             yield return new WaitForSeconds(barOverlapDelay);
 
             // Start sit-stand test animation + score pop
-            StartCoroutine(AnimateBar(_sitStandBarFill, _sitStandBarOriginalSize, _sitStandScore));
+            StartCoroutine(AnimateBar(_sitStandBarMaterialInstance, _sitStandScore));
             StartCoroutine(AnimateScoreTextPop(_sitStandScoreText));
             yield return new WaitForSeconds(barOverlapDelay);
 
             // Start walk test animation + score pop
-            StartCoroutine(AnimateBar(_walkBarFill, _walkBarOriginalSize, _walkScore));
+            StartCoroutine(AnimateBar(_walkBarMaterialInstance, _walkScore));
             StartCoroutine(AnimateScoreTextPop(_walkScoreText));
             yield return new WaitForSeconds(barOverlapDelay);
 
@@ -331,11 +361,11 @@ namespace SPPB.UI.Pages
         }
 
         /// <summary>
-        /// Animate score bar
+        /// Animate score bar via _FillAmount material property
         /// </summary>
-        private IEnumerator AnimateBar(RectTransform barFill, Vector2 originalSize, int score)
+        private IEnumerator AnimateBar(Material barMat, int score)
         {
-            if (barFill == null) yield break;
+            if (barMat == null) yield break;
 
             float targetProgress = (float)score / MAX_SINGLE_SCORE;
             float elapsed = 0f;
@@ -347,11 +377,11 @@ namespace SPPB.UI.Pages
                 // Use EaseOutQuad easing
                 float easedT = 1f - (1f - t) * (1f - t);
                 float currentProgress = Mathf.Lerp(0f, targetProgress, easedT);
-                SetBarWidth(barFill, currentProgress, originalSize);
+                barMat.SetFloat(BAR_FILL_PROPERTY, currentProgress);
                 yield return null;
             }
 
-            SetBarWidth(barFill, targetProgress, originalSize);
+            barMat.SetFloat(BAR_FILL_PROPERTY, targetProgress);
         }
 
         /// <summary>
