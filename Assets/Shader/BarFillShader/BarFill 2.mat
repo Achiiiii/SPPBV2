@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: BarFill
+  m_Name: BarFill 2
   m_Shader: {fileID: 4800000, guid: 6d063636a01bffc45a4d018eb0938818, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0

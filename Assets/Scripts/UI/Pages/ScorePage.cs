@@ -15,6 +15,7 @@ namespace SPPB.UI.Pages
     {
         [Header("Top Bar")]
         [SerializeField] private Sprite _scoreTitleSprite;    // Score page title
+        [SerializeField] private string _fillPropertyName = "_FillAmount";
 
         [Header("Background")]
         [SerializeField] private Image _backgroundImage;
@@ -25,7 +26,7 @@ namespace SPPB.UI.Pages
         [SerializeField] private Image _balanceNameImage;               // Test name image
         [SerializeField] private TextMeshProUGUI _balanceScoreText;     // Score text
         [SerializeField] private Image _balanceBarFrame;                // Score bar frame
-        [SerializeField] private RectTransform _balanceBarFill;         // Score bar fill (width controlled via RectTransform)
+        [SerializeField] private Image _balanceBarFill;
 
         [Header("Sit-Stand Test Score Section")]
         [SerializeField] private GameObject _sitStandScoreContainer;
@@ -33,7 +34,7 @@ namespace SPPB.UI.Pages
         [SerializeField] private Image _sitStandNameImage;              // Test name image
         [SerializeField] private TextMeshProUGUI _sitStandScoreText;    // Score text
         [SerializeField] private Image _sitStandBarFrame;               // Score bar frame
-        [SerializeField] private RectTransform _sitStandBarFill;        // Score bar fill (width controlled via RectTransform)
+        [SerializeField] private Image _sitStandBarFill;
 
         [Header("Walk Test Score Section")]
         [SerializeField] private GameObject _walkScoreContainer;
@@ -41,7 +42,7 @@ namespace SPPB.UI.Pages
         [SerializeField] private Image _walkNameImage;                  // Test name image
         [SerializeField] private TextMeshProUGUI _walkScoreText;        // Score text
         [SerializeField] private Image _walkBarFrame;                   // Score bar frame
-        [SerializeField] private RectTransform _walkBarFill;            // Score bar fill (width controlled via RectTransform)
+        [SerializeField] private Image _walkBarFill;
 
         [Header("Total Score Section")]
         [SerializeField] private GameObject _totalScoreContainer;
@@ -57,7 +58,6 @@ namespace SPPB.UI.Pages
         [Header("Score Bar Settings")]
         [SerializeField] private float _barAnimationDuration = 0.8f;    // Score bar animation duration
         [SerializeField] private float _ringAnimationDuration = 1.0f;   // Ring animation duration
-        [SerializeField] private string _ringFillPropertyName = "_FillAmount";  // Ring shader fill property name
 
         [Header("Health Rating Animation Settings")]
         [SerializeField] private float _healthRatingScaleStart = 0.3f;      // Start scale
@@ -95,6 +95,10 @@ namespace SPPB.UI.Pages
         // Health rating animation coroutine
         private Coroutine _healthRatingAnimCoroutine;
 
+        private Material _balanceMat;
+        private Material _sitStandMat;
+        private Material _walkMat;
+
         public override void Initialize()
         {
             base.Initialize();
@@ -111,10 +115,9 @@ namespace SPPB.UI.Pages
                 }
             }
 
-            // Store original sizes and set pivot for each score bar
-            InitializeBarFill(_balanceBarFill, ref _balanceBarOriginalSize);
-            InitializeBarFill(_sitStandBarFill, ref _sitStandBarOriginalSize);
-            InitializeBarFill(_walkBarFill, ref _walkBarOriginalSize);
+            InitializeBarFill(_balanceBarFill, ref _balanceMat);
+            InitializeBarFill(_sitStandBarFill, ref _sitStandMat);
+            InitializeBarFill(_walkBarFill, ref _walkMat);
 
             // Create Material instance for Ring Fill (avoid modifying shared Material)
             if (_totalRingFill != null && _totalRingFill.material != null)
@@ -125,25 +128,16 @@ namespace SPPB.UI.Pages
         }
 
         /// <summary>
-        /// Initialize score bar fill (set pivot to left side)
+        /// Initialize score bar fill material instance
         /// </summary>
-        private void InitializeBarFill(RectTransform barFill, ref Vector2 originalSize)
+        private void InitializeBarFill(Image barFill, ref Material mat)
         {
-            if (barFill == null) return;
+            if (barFill == null || barFill.material == null) return;
 
-            originalSize = barFill.sizeDelta;
-
-            // Set pivot to left center to ensure bar grows from left
-            Vector2 currentPivot = barFill.pivot;
-            Vector2 targetPivot = new Vector2(0f, 0.5f);
-
-            if (currentPivot != targetPivot)
-            {
-                Vector2 originalPosition = barFill.anchoredPosition;
-                float offsetX = (currentPivot.x - targetPivot.x) * originalSize.x;
-                barFill.pivot = targetPivot;
-                barFill.anchoredPosition = new Vector2(originalPosition.x - offsetX, originalPosition.y);
-            }
+            // Create a Material instance (same approach as the ring)
+            // canvasRenderer.GetMaterial() returns null before first render
+            mat = new Material(barFill.material);
+            barFill.material = mat;
         }
 
         public override void Configure(FlowStep step)
@@ -201,11 +195,11 @@ namespace SPPB.UI.Pages
                 _homeButton.onClick.RemoveListener(OnHomeClicked);
             }
 
-            // Clean up Material instance
-            if (_ringMaterialInstance != null)
-            {
-                Destroy(_ringMaterialInstance);
-            }
+            // Clean up Material instances
+            if (_balanceMat != null) Destroy(_balanceMat);
+            if (_sitStandMat != null) Destroy(_sitStandMat);
+            if (_walkMat != null) Destroy(_walkMat);
+            if (_ringMaterialInstance != null) Destroy(_ringMaterialInstance);
         }
 
         /// <summary>
@@ -213,13 +207,13 @@ namespace SPPB.UI.Pages
         /// </summary>
         private void ResetAllBars()
         {
-            SetBarWidth(_balanceBarFill, 0f, _balanceBarOriginalSize);
-            SetBarWidth(_sitStandBarFill, 0f, _sitStandBarOriginalSize);
-            SetBarWidth(_walkBarFill, 0f, _walkBarOriginalSize);
+            SetBarWidth(_balanceMat, 0f);
+            SetBarWidth(_sitStandMat, 0f);
+            SetBarWidth(_walkMat, 0f);
 
             if (_ringMaterialInstance != null)
             {
-                _ringMaterialInstance.SetFloat(_ringFillPropertyName, 0f);
+                _ringMaterialInstance.SetFloat(_fillPropertyName, 0f);
             }
 
             // Hide all health rating images (show after animation completes)
@@ -257,17 +251,17 @@ namespace SPPB.UI.Pages
             float ringOverlapDelay = _ringAnimationDuration * 0.5f;
 
             // Start balance test animation + score pop
-            StartCoroutine(AnimateBar(_balanceBarFill, _balanceBarOriginalSize, _balanceScore));
+            StartCoroutine(AnimateBar(_balanceMat, _balanceScore));
             StartCoroutine(AnimateScoreTextPop(_balanceScoreText));
             yield return new WaitForSeconds(barOverlapDelay);
 
             // Start sit-stand test animation + score pop
-            StartCoroutine(AnimateBar(_sitStandBarFill, _sitStandBarOriginalSize, _sitStandScore));
+            StartCoroutine(AnimateBar(_sitStandMat, _sitStandScore));
             StartCoroutine(AnimateScoreTextPop(_sitStandScoreText));
             yield return new WaitForSeconds(barOverlapDelay);
 
             // Start walk test animation + score pop
-            StartCoroutine(AnimateBar(_walkBarFill, _walkBarOriginalSize, _walkScore));
+            StartCoroutine(AnimateBar(_walkMat, _walkScore));
             StartCoroutine(AnimateScoreTextPop(_walkScoreText));
             yield return new WaitForSeconds(barOverlapDelay);
 
@@ -333,9 +327,9 @@ namespace SPPB.UI.Pages
         /// <summary>
         /// Animate score bar
         /// </summary>
-        private IEnumerator AnimateBar(RectTransform barFill, Vector2 originalSize, int score)
+        private IEnumerator AnimateBar(Material mat, int score)
         {
-            if (barFill == null) yield break;
+            if (mat == null) yield break;
 
             float targetProgress = (float)score / MAX_SINGLE_SCORE;
             float elapsed = 0f;
@@ -347,11 +341,10 @@ namespace SPPB.UI.Pages
                 // Use EaseOutQuad easing
                 float easedT = 1f - (1f - t) * (1f - t);
                 float currentProgress = Mathf.Lerp(0f, targetProgress, easedT);
-                SetBarWidth(barFill, currentProgress, originalSize);
+                SetBarWidth(mat, currentProgress);
                 yield return null;
             }
-
-            SetBarWidth(barFill, targetProgress, originalSize);
+            SetBarWidth(mat, targetProgress);
         }
 
         /// <summary>
@@ -372,22 +365,20 @@ namespace SPPB.UI.Pages
                 // Use EaseOutQuad easing
                 float easedT = 1f - (1f - t) * (1f - t);
                 float currentProgress = Mathf.Lerp(0f, targetProgress, easedT);
-                _ringMaterialInstance.SetFloat(_ringFillPropertyName, currentProgress);
+                _ringMaterialInstance.SetFloat(_fillPropertyName, currentProgress);
                 yield return null;
             }
 
-            _ringMaterialInstance.SetFloat(_ringFillPropertyName, targetProgress);
+            _ringMaterialInstance.SetFloat(_fillPropertyName, targetProgress);
         }
 
         /// <summary>
         /// Set score bar width
         /// </summary>
-        private void SetBarWidth(RectTransform barFill, float progress, Vector2 originalSize)
+        private void SetBarWidth(Material mat, float progress)
         {
-            if (barFill == null) return;
-            // Use the bar's original width as max width
-            float newWidth = originalSize.x * progress;
-            barFill.sizeDelta = new Vector2(newWidth, originalSize.y);
+            if (mat == null) return;
+            mat.SetFloat(_fillPropertyName, progress);
         }
 
         #region UI Configuration

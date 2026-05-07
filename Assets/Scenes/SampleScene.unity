@@ -1925,6 +1925,8 @@ MonoBehaviour:
   _blackOverlay: {fileID: 447500619}
   _fadeInDuration: 0.2
   _fadeOutDuration: 0.2
+  _fadeInEase: 5
+  _fadeOutEase: 6
 --- !u!1 &1755057641
 GameObject:
   m_ObjectHideFlags: 0
@@ -12004,25 +12006,26 @@ MonoBehaviour:
   _fadeInDuration: 0.3
   _fadeOutDuration: 0.3
   _scoreTitleSprite: {fileID: 21300000, guid: c052ecd14dcba06478961f6068f86802, type: 3}
+  _fillPropertyName: _FillAmount
   _backgroundImage: {fileID: 181740677374682773}
   _balanceScoreContainer: {fileID: 6624686805351200237}
   _balanceIcon: {fileID: 3979088502911990343}
   _balanceNameImage: {fileID: 1720719124555859326}
   _balanceScoreText: {fileID: 7915685508087385673}
   _balanceBarFrame: {fileID: 4991475386029156975}
-  _balanceBarFill: {fileID: 266133418901154922}
+  _balanceBarFill: {fileID: 7528054768837524794}
   _sitStandScoreContainer: {fileID: 3520677141555552712}
   _sitStandIcon: {fileID: 5733044298416658319}
   _sitStandNameImage: {fileID: 8724077653335357546}
   _sitStandScoreText: {fileID: 6192555806940100826}
   _sitStandBarFrame: {fileID: 2359896591674512617}
-  _sitStandBarFill: {fileID: 4808399744023743419}
+  _sitStandBarFill: {fileID: 8493269731916342799}
   _walkScoreContainer: {fileID: 2080203763009733310}
   _walkIcon: {fileID: 3246901222251631606}
   _walkNameImage: {fileID: 1124399960287525065}
   _walkScoreText: {fileID: 3263702164001041644}
   _walkBarFrame: {fileID: 7084582900094734628}
-  _walkBarFill: {fileID: 4838288883429037605}
+  _walkBarFill: {fileID: 7357671579700756103}
   _totalScoreContainer: {fileID: 4911725236469552606}
   _totalRingFrame: {fileID: 9205525433044256835}
   _totalRingFill: {fileID: 5361424462316394601}
@@ -12032,7 +12035,6 @@ MonoBehaviour:
   _healthRatingImage_Unable: {fileID: 6325933571242521731}
   _barAnimationDuration: 0.8
   _ringAnimationDuration: 1
-  _ringFillPropertyName: _FillAmount
   _healthRatingScaleStart: 0.3
   _healthRatingScaleEnd: 1
   _healthRatingScaleDuration: 0.4
@@ -12217,7 +12219,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_Material: {fileID: 2100000, guid: 8abf6a0b640f38d468781e20fb104cf0, type: 2}
+  m_Material: {fileID: 2100000, guid: d8963fe3b4269994089bfdbdd840131e, type: 2}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
@@ -13558,7 +13560,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_Material: {fileID: 2100000, guid: 8abf6a0b640f38d468781e20fb104cf0, type: 2}
+  m_Material: {fileID: 2100000, guid: 395096dae24386646b9427554e4ffdec, type: 2}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
