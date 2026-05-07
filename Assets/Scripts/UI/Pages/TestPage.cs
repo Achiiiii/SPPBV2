@@ -969,6 +969,7 @@ namespace SPPB.UI.Pages
             _currentHintImage = null;
             _isHintAnimating = false;
             _isCalibrate = true;
+            _lastCountdown = -1;
             CancelInvoke(nameof(GoToNextStep));
             CancelInvoke(nameof(StartTesting));
 
@@ -1174,12 +1175,11 @@ namespace SPPB.UI.Pages
         /// <summary>
         /// Walk test complete (called by external AI detection)
         /// </summary>
-        public void OnWalkTestComplete(float sdkScore = 0f)
+        public void OnWalkTestComplete()
         {
             if (_testState != TestState.Testing || _currentStep != FlowStep.Walk_Test)
                 return;
 
-            ScoreManager.Instance.SetWalkScore(Mathf.RoundToInt(sdkScore));
             CompleteTest();
         }
 
@@ -1192,25 +1192,9 @@ namespace SPPB.UI.Pages
                 _currentStep != FlowStep.BalanceTandem_Test)
                 return;
 
-            // 給 1 秒容差避免 elapsed 抓到 9.97 等邊界值被誤判失敗
-            _balanceFailed = sdkScore <= 0f && sdkElapsed < (_balanceTestDuration - 1f);
+            // 以 SDK 回傳的 elapsed + score 為準：SDK 判定成功（score>0 或 elapsed>=10s）即顯示完成；否則顯示失敗
+            _balanceFailed = sdkScore <= 0f && sdkElapsed < _balanceTestDuration;
             Debug.Log($"[Balance] complete — sdkScore={sdkScore}, sdkElapsed={sdkElapsed:F2}, failed={_balanceFailed}");
-
-            // 依 elapsed 計算 SPPB 平衡分數並存入 ScoreManager
-            switch (_currentStep)
-            {
-                case FlowStep.BalanceSideBySide_Test:
-                    ScoreManager.Instance.SetBalanceSideBySideScore(sdkElapsed >= _balanceTestDuration - 1f ? 1 : 0);
-                    break;
-                case FlowStep.BalanceSemiTandem_Test:
-                    ScoreManager.Instance.SetBalanceSemiTandemScore(sdkElapsed >= _balanceTestDuration - 1f ? 1 : 0);
-                    break;
-                case FlowStep.BalanceTandem_Test:
-                    int tandemScore = sdkElapsed >= _balanceTestDuration - 1f ? 2 : (sdkElapsed >= 3f ? 1 : 0);
-                    ScoreManager.Instance.SetBalanceTandemScore(tandemScore);
-                    break;
-            }
-
             CompleteTest();
         }
 

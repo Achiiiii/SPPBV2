@@ -106,6 +106,7 @@ namespace SPPB.Core
             _isTransitioning = false;
             GoToStep(FlowStep.Home);
             motionSDKClient.ResetMotionSDK();
+            ScoreManager.Instance.ResetAllScores();
         }
 
         /// <summary>
