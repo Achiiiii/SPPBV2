@@ -248,6 +248,10 @@ namespace SPPB.Core
             {
                 return false;
             }
+            if (currentPage == _teachingPage && targetPage == _testPage)
+            {
+                return false;
+            }
 
             // All other cross-page switches use transition effect (including from home)
             return true;

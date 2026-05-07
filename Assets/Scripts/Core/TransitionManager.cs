@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using System;
-using System.Collections;
+using DG.Tweening;
 using SPPB.Utils;
 
 namespace SPPB.Core
@@ -16,8 +16,10 @@ namespace SPPB.Core
         [SerializeField] private Image _blackOverlay;
         [SerializeField] private float _fadeInDuration = 0.5f;   // Time to fade to black
         [SerializeField] private float _fadeOutDuration = 0.5f;  // Time to fade from black
+        [SerializeField] private Ease _fadeInEase = Ease.InQuad;
+        [SerializeField] private Ease _fadeOutEase = Ease.OutQuad;
 
-        private Coroutine _currentTransition;
+        private Tween _currentTween;
 
         protected override void Awake()
         {
@@ -54,12 +56,24 @@ namespace SPPB.Core
         /// </summary>
         public void FadeToBlack(Action onComplete = null)
         {
-            if (_currentTransition != null)
+            KillCurrentTween();
+
+            if (_blackOverlay == null)
             {
-                StopCoroutine(_currentTransition);
+                Debug.LogError("[TransitionManager] Black Overlay is null, cannot execute fade in");
+                return;
             }
 
-            _currentTransition = StartCoroutine(FadeToBlackCoroutine(onComplete));
+            _blackOverlay.gameObject.SetActive(true);
+
+            _currentTween = _blackOverlay
+                .DOFade(1f, _fadeInDuration)
+                .SetEase(_fadeInEase)
+                .SetUpdate(true) // Use unscaled time
+                .OnComplete(() =>
+                {
+                    onComplete?.Invoke();
+                });
         }
 
         /// <summary>
@@ -67,12 +81,23 @@ namespace SPPB.Core
         /// </summary>
         public void FadeFromBlack(Action onComplete = null)
         {
-            if (_currentTransition != null)
+            KillCurrentTween();
+
+            if (_blackOverlay == null)
             {
-                StopCoroutine(_currentTransition);
+                Debug.LogError("[TransitionManager] Black Overlay is null, cannot execute fade out");
+                return;
             }
 
-            _currentTransition = StartCoroutine(FadeFromBlackCoroutine(onComplete));
+            _currentTween = _blackOverlay
+                .DOFade(0f, _fadeOutDuration)
+                .SetEase(_fadeOutEase)
+                .SetUpdate(true) // Use unscaled time
+                .OnComplete(() =>
+                {
+                    _blackOverlay.gameObject.SetActive(false);
+                    onComplete?.Invoke();
+                });
         }
 
         /// <summary>
@@ -82,12 +107,43 @@ namespace SPPB.Core
         /// <param name="onComplete">Action to execute after the entire transition completes</param>
         public void TransitionBetweenPages(Action onBlackScreen, Action onComplete = null)
         {
-            if (_currentTransition != null)
+            KillCurrentTween();
+
+            if (_blackOverlay == null)
             {
-                StopCoroutine(_currentTransition);
+                Debug.LogError("[TransitionManager] Black Overlay is null, cannot execute transition");
+                return;
             }
 
-            _currentTransition = StartCoroutine(TransitionCoroutine(onBlackScreen, onComplete));
+            _blackOverlay.gameObject.SetActive(true);
+
+            Sequence sequence = DOTween.Sequence();
+
+            // Phase 1: Fade to black
+            sequence.Append(
+                _blackOverlay.DOFade(1f, _fadeInDuration).SetEase(_fadeInEase)
+            );
+
+            // Phase 2: Execute action during black screen (e.g., switch pages)
+            sequence.AppendCallback(() =>
+            {
+                onBlackScreen?.Invoke();
+            });
+
+            // Phase 3: Fade from black
+            sequence.Append(
+                _blackOverlay.DOFade(0f, _fadeOutDuration).SetEase(_fadeOutEase)
+            );
+
+            // Phase 4: Notify transition complete
+            sequence.OnComplete(() =>
+            {
+                _blackOverlay.gameObject.SetActive(false);
+                onComplete?.Invoke();
+            });
+
+            sequence.SetUpdate(true); // Use unscaled time
+            _currentTween = sequence;
         }
 
         /// <summary>
@@ -95,6 +151,8 @@ namespace SPPB.Core
         /// </summary>
         public void SetBlackImmediate()
         {
+            KillCurrentTween();
+
             if (_blackOverlay != null)
             {
                 _blackOverlay.gameObject.SetActive(true);
@@ -109,6 +167,8 @@ namespace SPPB.Core
         /// </summary>
         public void ClearBlackImmediate()
         {
+            KillCurrentTween();
+
             if (_blackOverlay != null)
             {
                 Color color = _blackOverlay.color;
@@ -118,80 +178,22 @@ namespace SPPB.Core
             }
         }
 
-        #region Coroutines
-
-        private IEnumerator FadeToBlackCoroutine(Action onComplete)
+        /// <summary>
+        /// Kill any currently running tween to prevent conflicts
+        /// </summary>
+        private void KillCurrentTween()
         {
-            if (_blackOverlay == null)
+            if (_currentTween != null && _currentTween.IsActive())
             {
-                Debug.LogError("[TransitionManager] Black Overlay is null, cannot execute fade in");
-                yield break;
+                _currentTween.Kill();
+                _currentTween = null;
             }
-
-            _blackOverlay.gameObject.SetActive(true);
-
-            float elapsedTime = 0f;
-            Color color = _blackOverlay.color;
-
-            while (elapsedTime < _fadeInDuration)
-            {
-                elapsedTime += Time.unscaledDeltaTime;
-                color.a = Mathf.Clamp01(elapsedTime / _fadeInDuration);
-                _blackOverlay.color = color;
-                yield return null;
-            }
-
-            // Ensure complete black screen
-            color.a = 1f;
-            _blackOverlay.color = color;
-
-            onComplete?.Invoke();
         }
 
-        private IEnumerator FadeFromBlackCoroutine(Action onComplete)
+        private void OnDestroy()
         {
-            if (_blackOverlay == null)
-            {
-                Debug.LogError("[TransitionManager] Black Overlay is null, cannot execute fade out");
-                yield break;
-            }
-
-            float elapsedTime = 0f;
-            Color color = _blackOverlay.color;
-            float startAlpha = color.a;
-
-            while (elapsedTime < _fadeOutDuration)
-            {
-                elapsedTime += Time.unscaledDeltaTime;
-                color.a = Mathf.Lerp(startAlpha, 0f, elapsedTime / _fadeOutDuration);
-                _blackOverlay.color = color;
-                yield return null;
-            }
-
-            // Ensure complete transparency
-            color.a = 0f;
-            _blackOverlay.color = color;
-            _blackOverlay.gameObject.SetActive(false);
-
-            onComplete?.Invoke();
+            KillCurrentTween();
         }
-
-        private IEnumerator TransitionCoroutine(Action onBlackScreen, Action onComplete = null)
-        {
-            // Phase 1: Fade to black
-            yield return FadeToBlackCoroutine(null);
-
-            // Phase 2: Execute action during black screen (e.g., switch pages)
-            onBlackScreen?.Invoke();
-
-            // Phase 3: Fade from black
-            yield return FadeFromBlackCoroutine(null);
-
-            // Phase 4: Notify transition complete
-            onComplete?.Invoke();
-        }
-
-        #endregion
 
         #region Inspector Settings
 
