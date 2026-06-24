@@ -20,6 +20,7 @@ namespace SPPB.Core
 
         private void Start()
         {
+            Application.targetFrameRate = 60;
             // Ensure TopBarManager is initialized
             if (_topBarManager == null)
             {
