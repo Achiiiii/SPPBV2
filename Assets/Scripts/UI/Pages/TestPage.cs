@@ -643,8 +643,8 @@ namespace SPPB.UI.Pages
                           || _currentStep == FlowStep.BalanceSemiTandem_Test
                           || _currentStep == FlowStep.BalanceTandem_Test;
 
-            if (isBalance && _balanceFailed)
-                return _hintImage_BalanceFailed;
+            // if (isBalance && _balanceFailed)
+            //     return _hintImage_BalanceFailed;
 
             return GetTestCompleteImage();
         }
