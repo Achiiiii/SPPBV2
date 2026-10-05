@@ -4,8 +4,6 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Video;
-using UnityEngine.Rendering;
-using Unity.Collections;
 
 public struct ImageBuffer
 {
@@ -31,13 +29,6 @@ class TransformTexture
 	private Texture2D reader;
 	public int width { get; private set; }
 	public int height { get; private set; }
-
-	// 非阻塞回讀用：重用緩衝、單一 in-flight、釋放旗標
-	private Color32[] _buffer;
-	private bool _readbackPending;
-	private bool _useAsync;
-	private bool _released;
-	private bool _loggedError;
 
 	public TransformTexture(Texture source, int degree, Vector2 flip = new Vector2()) : this(source, getMatrix(degree, flip)) { }
 	TransformTexture(Texture source, Vector4 transform)
@@ -84,8 +75,6 @@ class TransformTexture
 			// initializationSource = CustomRenderTextureInitializationSource.TextureAndColor,
 		};//*/
 		reader = new Texture2D(width, height, TextureFormat.ARGB32, false);
-		_buffer = new Color32[width * height];
-		_useAsync = SystemInfo.supportsAsyncGPUReadback;
 	}
 	public Color32[] GetPixels32()
 	{
@@ -97,47 +86,6 @@ class TransformTexture
 		RenderTexture.active = rt;
 		reader.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0);
 		return reader.GetPixels32();
-	}
-
-	// 以非阻塞 AsyncGPUReadback 取代同步 ReadPixels，並重用緩衝避免每幀 GC。
-	// 結果透過 onReady 以「重用的」陣列回傳，呼叫端必須在回呼內同步消費
-	// （PushFrame 會立即把像素複製進 native，所以重用安全）。
-	public void DeliverPixels32(Action<Color32[]> onReady)
-	{
-		if (!_useAsync)
-		{
-			// 裝置不支援 async readback：退回原本的同步行為
-			onReady(GetPixels32());
-			return;
-		}
-		if (_readbackPending) return;   // 上一次回讀還沒完成就跳過這幀，避免請求堆積
-		_readbackPending = true;
-		AsyncGPUReadback.Request(rt, 0, TextureFormat.RGBA32, req =>
-		{
-			_readbackPending = false;
-			if (_released) return;
-			if (req.hasError)
-			{
-				// 若此裝置不支援此 readback 格式，會持續 hasError 導致姿勢無資料；記錄一次方便排查
-				if (!_loggedError)
-				{
-					_loggedError = true;
-					Debug.LogError("[TransformTexture] AsyncGPUReadback hasError — 此裝置可能不支援 RGBA32 readback，姿勢偵測將無資料。");
-				}
-				return;
-			}
-			var data = req.GetData<Color32>();
-			data.CopyTo(_buffer);
-			onReady(_buffer);
-		});
-	}
-
-	// 停用時呼叫：先標記釋放讓尚未完成的回呼直接 no-op，再排空 in-flight 請求
-	public void Release()
-	{
-		_released = true;
-		if (_useAsync)
-			AsyncGPUReadback.WaitAllRequests();
 	}
 
 	private static Vector4 degree2Matrix(int degrees)
@@ -233,11 +181,9 @@ class CameraInput : IInput
 		try
 		{
 			// if (webcam.didUpdateThisFrame)
-			ulong frameId = webcam.updateCount;
-			transformed.DeliverPixels32(buf =>
-				OnNewFrame(new ImageBuffer(frameId, buf, transformed.width, transformed.height)));
+			OnNewFrame(new ImageBuffer(webcam.updateCount, transformed.GetPixels32(), transformed.width, transformed.height));
 			webcam.IncrementUpdateCount();
-			if (webcam.updateCount % 300 == 0)//新增這裡，每120個frame重新對焦一次
+			if (webcam.updateCount % 120 == 0)//新增這裡，每120個frame重新對焦一次
 				webcam.autoFocusPoint = new Vector2(0.5f, 0.5f);
 		}
 		catch (NullReferenceException e)
@@ -245,11 +191,7 @@ class CameraInput : IInput
 			Debug.Log(e);
 		}
 	}
-	public override void Stop()
-	{
-		transformed?.Release();
-		webcam.Stop();
-	}
+	public override void Stop() => webcam.Stop();
 }
 
 class VideoInput : IInput
@@ -273,8 +215,7 @@ class VideoInput : IInput
 		player.timeUpdateMode = VideoTimeUpdateMode.DSPTime;
 		player.skipOnDrop = false;
 		player.SetDirectAudioMute(0, true);
-		player.frameReady += (VideoPlayer source, long frameIdx) =>
-			transformed.DeliverPixels32(buf => OnNewFrame(new ImageBuffer((ulong)frameIdx, buf, (int)player.width, (int)player.height)));
+		player.frameReady += (VideoPlayer source, long frameIdx) => OnNewFrame(new ImageBuffer((ulong)frameIdx, transformed.GetPixels32(), (int)player.width, (int)player.height));
 		player.Prepare();
 		player.Play();
 		while (!player.isPrepared)
@@ -283,7 +224,6 @@ class VideoInput : IInput
 	}
 	public override void Stop()
 	{
-		transformed?.Release();
 		player.Stop();
 		MonoBehaviour.Destroy(player);
 	}
@@ -292,8 +232,7 @@ class VideoInput : IInput
 class ImageInput : IInput
 {
 	public ImageInput(Texture2D image) => transformed = new TransformTexture(image, 0, new Vector2(1, -1));
-	public override void Update() => transformed.DeliverPixels32(buf => OnNewFrame(new ImageBuffer(0, buf, transformed.width, transformed.height)));
-	public override void Stop() => transformed?.Release();
+	public override void Update() => OnNewFrame(new ImageBuffer(0, transformed.GetPixels32(), transformed.width, transformed.height));
 }
 
 public class InputManager : MonoBehaviour
