@@ -58,3 +58,9 @@ sysinfo.txt
 Icon?
 ehthumbs.db
 Thumbs.db
+
+# 現場診斷輸出 / 本機 log（不進版控）
+/diag_*.csv
+/walk_diag_*.csv
+/*.log
+/_nul

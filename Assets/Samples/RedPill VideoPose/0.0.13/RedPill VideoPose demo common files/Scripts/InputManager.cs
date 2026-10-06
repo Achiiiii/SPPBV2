@@ -40,8 +40,19 @@ class TransformTexture
 	private bool _loggedError;
 
 	public TransformTexture(Texture source, int degree, Vector2 flip = new Vector2()) : this(source, getMatrix(degree, flip)) { }
+	/// <summary>轉換矩陣 (row0 = x,y ; row1 = z,w)：輸出影像 UV → 來源(相機)UV = M*(uv-0.5)+0.5。</summary>
+	public Vector4 matrix { get; private set; }
+
+	/// <summary>把「輸出影像 UV」(= 送給 VideoPose 的影像，u=x/W、v=y/H) 換算成來源相機 UV。</summary>
+	public Vector2 ToSourceUV(Vector2 uv)
+	{
+		Vector2 p = uv - new Vector2(0.5f, 0.5f);
+		return new Vector2(matrix.x * p.x + matrix.y * p.y, matrix.z * p.x + matrix.w * p.y) + new Vector2(0.5f, 0.5f);
+	}
+
 	TransformTexture(Texture source, Vector4 transform)
 	{
+		matrix = transform;
 		(width, height) = transform[0] != 0 ? (source.width, source.height) : (source.height, source.width);
 
 		// if(transform == new Vector4(1, 0, 0, 1))
@@ -167,6 +178,9 @@ abstract class IInput
 	public virtual IEnumerator Start() { yield return null; }
 	public virtual void Update() { }
 	public virtual void Stop() { }
+	/// <summary>設定自動對焦點（輸出影像 UV：u=x/W、v=y/H，與 VideoPose keyPoints 同座標）。不支援則回傳 false。</summary>
+	public virtual bool SetFocusPoint(Vector2 imageUV) => false;
+	public virtual bool IsFocusPointSupported => false;
 }
 
 class CameraInput : IInput
@@ -175,6 +189,23 @@ class CameraInput : IInput
 	private Vector2 res;
 	private bool front, wide;
 	private WebCamTexture webcam = null;
+	private Vector2 _focusPoint = new Vector2(0.5f, 0.5f);   // 相機 UV
+	private bool _focusSupported;
+	public bool focusInvertY = false;                       // 若實測對焦上下相反，設 true
+
+	public override bool IsFocusPointSupported => webcam != null && _focusSupported;
+
+	public override bool SetFocusPoint(Vector2 imageUV)
+	{
+		if (webcam == null || transformed == null) return false;
+		Vector2 src = transformed.ToSourceUV(imageUV);
+		if (focusInvertY) src.y = 1f - src.y;
+		_focusPoint = new Vector2(Mathf.Clamp01(src.x), Mathf.Clamp01(src.y));
+		if (!_focusSupported) return false;
+		webcam.autoFocusPoint = _focusPoint;
+		return true;
+	}
+
 	public CameraInput(Vector2 res, bool front = true, bool wide = true)
 	{
 		this.front = front;
@@ -189,6 +220,29 @@ class CameraInput : IInput
 	public override IEnumerator Start()
 	{
 		yield return Application.RequestUserAuthorization(UserAuthorization.WebCam);
+#if UNITY_ANDROID && !UNITY_EDITOR
+		// Android：RequestUserAuthorization 不會等使用者回應。全新安裝時權限對話框還沒按就去抓相機，
+		// devices 會是空的而丟例外、相機起不來(需重開 App)。改為等到使用者允許相機權限。
+		if (!UnityEngine.Android.Permission.HasUserAuthorizedPermission(UnityEngine.Android.Permission.Camera))
+		{
+			UnityEngine.Android.Permission.RequestUserPermission(UnityEngine.Android.Permission.Camera);
+			float waited = 0f;
+			while (!UnityEngine.Android.Permission.HasUserAuthorizedPermission(UnityEngine.Android.Permission.Camera))
+			{
+				yield return new WaitForSeconds(0.5f);
+				waited += 0.5f;
+				if (waited >= 5f)   // 使用者拒絕或關掉對話框：每 5 秒再詢問一次
+				{
+					waited = 0f;
+					Debug.LogWarning("CameraInput: 尚未取得相機權限，重新詢問");
+					UnityEngine.Android.Permission.RequestUserPermission(UnityEngine.Android.Permission.Camera);
+				}
+			}
+		}
+#endif
+		// 權限剛允許時相機清單可能還是空的，等到有相機再繼續
+		while (WebCamTexture.devices.Length == 0)
+			yield return new WaitForSeconds(0.5f);
 		var deviceName = WebCamTexture.devices.Last().name;
 		if (id < 0)
 		{
@@ -211,6 +265,7 @@ class CameraInput : IInput
 			}
 			deviceName = WebCamTexture.devices[id].name;
 		}
+		_focusSupported = WebCamTexture.devices.Any(d => d.name == deviceName && d.isAutoFocusPointSupported);
 		webcam = new WebCamTexture(deviceName, (int)res.x, (int)res.y, 30)
 		{
 			name = "WebCamTexture",
@@ -220,7 +275,7 @@ class CameraInput : IInput
 		webcam.Play();
 		while (webcam.width == 16 && webcam.height == 16)
 			yield return null;
-		Debug.Log($"WebCamTexture: {deviceName}, {webcam.width}x{webcam.height}");
+		Debug.Log($"WebCamTexture: {deviceName}, {webcam.width}x{webcam.height}, 支援指定對焦點={_focusSupported}, 旋轉={webcam.videoRotationAngle}, 垂直鏡像={webcam.videoVerticallyMirrored}");
 		// #if UNITY_ANDROID && !UNITY_EDITOR
 		// 	transformed = new TransformTexture(webcam, (webcam.videoRotationAngle+180)%360, new Vector2(-1, webcam.videoVerticallyMirrored ? 1 : -1) * flip);
 		// #else
@@ -237,8 +292,8 @@ class CameraInput : IInput
 			transformed.DeliverPixels32(buf =>
 				OnNewFrame(new ImageBuffer(frameId, buf, transformed.width, transformed.height)));
 			webcam.IncrementUpdateCount();
-			if (webcam.updateCount % 300 == 0)//新增這裡，每120個frame重新對焦一次
-				webcam.autoFocusPoint = new Vector2(0.5f, 0.5f);
+			if (webcam.updateCount % 300 == 0)// 每 300 幀重新對焦一次（對焦點跟著受測者，預設畫面中央）
+				webcam.autoFocusPoint = _focusPoint;
 		}
 		catch (NullReferenceException e)
 		{
@@ -342,5 +397,9 @@ public class InputManager : MonoBehaviour
 		input?.Stop();
 		input = null;
 	}
+
+	/// <summary>設定自動對焦點（影像 UV：u=x/W、v=y/H，與 VideoPose keyPoints 同座標）。</summary>
+	public bool SetFocusPoint(Vector2 imageUV) => input != null && input.SetFocusPoint(imageUV);
+	public bool IsFocusPointSupported => input != null && input.IsFocusPointSupported;
 	void OnRenderObject() => input?.Update();
 }

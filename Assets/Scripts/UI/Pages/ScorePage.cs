@@ -430,6 +430,8 @@ namespace SPPB.UI.Pages
                 targetImage = _healthRatingImage_Unable;
             }
 
+            ShowRatingComment(totalScore);
+
             // Play popup animation
             if (targetImage != null)
             {
@@ -439,6 +441,30 @@ namespace SPPB.UI.Pages
                 }
                 _healthRatingAnimCoroutine = StartCoroutine(AnimateHealthRatingPopup(targetImage));
             }
+        }
+
+        // 各評級的小評語：文字（上方對話框，精簡）＋語音（較完整）。
+        // 只做衛教提醒、不做診斷；分級依 SPPB 總分：10~12 / 7~9 / 4~6 / 0~3。
+        private static readonly string[] RatingDialog =
+        {
+            "表現很好！平衡、起身和走路都很穩健，請繼續保持運動習慣",               // 10~12
+            "大致不錯，部分項目稍微吃力，建議多做下肢肌力與平衡練習",               // 7~9
+            "下肢功能有些退化、跌倒風險較高，建議諮詢醫師或物理治療師",             // 4~6
+            "這次有些項目較難完成，建議儘快請專業人員評估，活動時注意安全",         // 0~3
+        };
+        private static readonly string[] RatingSpeech =
+        {
+            "您的表現很好！平衡、起身和走路都很穩健，下肢功能維持得不錯。請繼續保持規律運動和多活動的好習慣。",
+            "您的下肢功能大致不錯，不過有些項目做起來稍微吃力，屬於需要多留意的階段。建議平常多做坐站練習、散步和平衡練習，並定期再來測一次。",
+            "您的下肢功能有些退化，跌倒的風險比較高。建議諮詢醫師或物理治療師，安排適合您的運動訓練，平常走路和上下樓梯時也請多注意安全。",
+            "這次測驗有些項目比較難完成，表示下肢功能需要多加留意。建議儘快請醫師或專業人員做進一步評估，活動時最好有人陪同，注意安全。",
+        };
+
+        private void ShowRatingComment(int totalScore)
+        {
+            int i = totalScore >= 10 ? 0 : totalScore >= 7 ? 1 : totalScore >= 4 ? 2 : 3;
+            if (TopBarManager.Instance != null) TopBarManager.Instance.SetDialogTextWithAnimation(RatingDialog[i]);
+            if (NuwaManager.Instance != null) NuwaManager.Instance.NuwaTTS($"您的總分是 {totalScore} 分。{RatingSpeech[i]}");
         }
 
         /// <summary>

@@ -159,13 +159,13 @@ public class MotionSDKClient : MonoBehaviour
         {
             case 1:
             case 2:
-                Debug.Log($"{{ \"type\":{r.type}, \"fdis_norm\":{r.fdis_norm:F2}, \"score\":{r.score}, \"state\":{r.state}, \"elapsed\":{r.elapsed:F2} }}");
+                Debug.Log($"{{ \"type\":{r.type}, \"fdis\":{r.fdis:F2}, \"score\":{r.score}, \"state\":{r.state}, \"elapsed\":{r.elapsed:F2} }}");
                 break;
             case 3:
-                Debug.Log($"{{ \"type\":{r.type}, \"dd_norm\":{r.dd_norm:F2}, \"fdis_norm\":{r.fdis_norm:F2}, \"score\":{r.score}, \"state\":{r.state}, \"elapsed\":{r.elapsed:F2} }}");
+                Debug.Log($"{{ \"type\":{r.type}, \"dd\":{r.dd:F2}, \"fdis\":{r.fdis:F2}, \"score\":{r.score}, \"state\":{r.state}, \"elapsed\":{r.elapsed:F2} }}");
                 break;
             case 4:
-                Debug.Log($"{{ \"type\":{r.type}, \"diff_norm\":{r.diff_norm:F2}, \"score\":{r.score}, \"state\":{r.state}, \"elapsed\":{r.elapsed:F2} }}");
+                Debug.Log($"{{ \"type\":{r.type}, \"diff\":{r.diff:F2}, \"score\":{r.score}, \"state\":{r.state}, \"elapsed\":{r.elapsed:F2} }}");
                 break;
             case 5:
                 int sitVal = r.sit_count > 0 ? r.sit_count : r.sit;
@@ -225,7 +225,7 @@ public class MotionSDKClient : MonoBehaviour
                 }
 
                 // 更新步行進度條
-                _testPage.UpdateWalkProgress(r.diff_norm);
+                _testPage.UpdateWalkProgress(r.diff);
             }
 
             _previousState = r.state;
@@ -304,9 +304,9 @@ public class MotionSDKClient : MonoBehaviour
         public int sit;         // 相容舊版欄位名稱
         public float score;     // 分數
         public float elapsed;   // 已用時間（秒）
-        public float diff_norm;    // 步行測試進度（實際使用欄位）
-        public float fdis_norm;
-        public float dd_norm;
+        public float diff;      // 步行前進距離 (SDK: diff_raw/10, 0~300, PDF p.9) — 欄名須與 SDK JSON 一致
+        public float fdis;      // 兩腳尖距離指標
+        public float dd;        // tandem 前後腳深度交錯
     }
 
 
