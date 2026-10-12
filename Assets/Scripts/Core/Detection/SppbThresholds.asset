@@ -1,0 +1,47 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a33e10472f477e549b14f9a4a33cfa73, type: 3}
+  m_Name: SppbThresholds
+  m_EditorClassIdentifier:
+  sideBySide:
+    toeWidthMax: 400
+    ankleWidthMax: 260
+    tandemDepthMin: 0
+  semiTandem:
+    toeWidthMax: 300
+    ankleWidthMax: 240
+    tandemDepthMin: 0
+  tandem:
+    toeWidthMax: 230
+    ankleWidthMax: 180
+    tandemDepthMin: 0.05
+  balanceHoldDuration: 10
+  balanceViolationTimeout: 0.8
+  tandemMinHoldForPartial: 3
+  balanceStartGrace: 1
+  walkDistanceTarget: 380
+  walkCalibrationMode: 0
+  walkTime4: 3.62
+  walkTime3: 4.65
+  walkTime2: 6.52
+  walkTime1: 15
+  walkTimeout: 15
+  walkFinishMinMeters: 1.5
+  sitStandTargetReps: 5
+  sitDownAngleDrop: 40
+  sitUpAngleReturn: 30
+  sitStandInitialStandAngle: 165
+  sitTime4: 11.19
+  sitTime3: 13.69
+  sitTime2: 16.69
+  sitTime1: 59.9
+  sitTimeout: 60

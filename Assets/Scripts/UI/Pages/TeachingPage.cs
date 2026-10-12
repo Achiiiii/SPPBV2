@@ -143,29 +143,26 @@ namespace SPPB.UI.Pages
             switch (step)
             {
                 // ===== Intro Phase (show icon containers) =====
+                // 語音講完不自動推進，一律等使用者按「繼續」按鈕（OnStartClicked）
                 case FlowStep.TestIntro:
                     _nuwaText = "我們將進行3項測試，不用緊張，請依照語音指示進行操作。";
-                    _nuwaCompleteCallback = OnStartClickedAction;
                     break;
 
                 case FlowStep.BalanceIntro:
                     _nuwaText = "第一項是平衡測試，請您嘗試三種不同的站姿，每一種都要維持10秒鐘";
-                    _nuwaCompleteCallback = OnStartClickedAction;
                     break;
 
                 case FlowStep.SitStandIntro:
                     _nuwaText = "接下來是坐站測試，請坐在椅子上，雙手交叉抱胸，進行起立坐下動作。請在沒有扶手的情況下，連續站立並坐下5次";
-                    _nuwaCompleteCallback = OnStartClickedAction;
                     break;
 
                 case FlowStep.WalkIntro:
-                    _nuwaText = "最後是步態速度測試，請您以平常走路的速度，向後方行走3公尺，當我說開始時請出發，直到走到地上的標示終點為止。";
-                    _nuwaCompleteCallback = OnStartClickedAction;
+                    _nuwaText = "最後是步態速度測試。開始前，請先站到離我 4.5 公尺以外的起點，面向我站好。當我說開始時，請以平常走路的速度向我走過來，直到走到地上的標示終點為止。";
                     break;
 
                 // ===== A-Pose Calibration Teaching (video only, no small icon) =====
                 case FlowStep.APoseCalibration_Teaching:
-                    _nuwaText = "點擊開始後，將進行定位校準流程，以利後續測驗順利進行。";
+                    _nuwaText = "接下來要進行定位校準。請站到我正前方約 2 到 3 公尺，讓頭到腳都出現在畫面中。站直，雙手往兩側斜下方張開，像 A 字形，保持不動兩秒鐘就完成了。準備好後請點擊開始。";
                     break;
 
                 // ===== Teaching Phase (show video + small icon) =====
@@ -186,7 +183,7 @@ namespace SPPB.UI.Pages
                     break;
 
                 case FlowStep.Walk_Teaching:
-                    _nuwaText = "點擊開始後，將進行影片中的測驗內容，請依照內容執行動作!";
+                    _nuwaText = "請先站到離我 4.5 公尺以外的起點，面向我站好。點擊開始後，聽到開始就向我走過來。";
                     break;
             }
         }
@@ -632,10 +629,10 @@ namespace SPPB.UI.Pages
                     return "請坐在椅子上，雙手交叉抱胸，連續站立並坐下5次";
 
                 case FlowStep.WalkIntro:
-                    return "請以平常走路的速度，向前方行走3公尺";
+                    return "開始前請先站到離凱比 4.5 公尺以外的起點，再以平常速度走過來";
 
                 case FlowStep.Walk_Teaching:
-                    return "請以平常走路的速度，向前方行走3公尺";
+                    return "請站到 4.5 公尺外的起點，面向凱比，聽到開始後走過來";
 
                 default:
                     return "";

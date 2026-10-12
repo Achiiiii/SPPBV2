@@ -1,5 +1,6 @@
 using UnityEngine;
 using SPPB.Utils;
+using SPPB.Core.Detection;
 using SPPB.Data;
 using SPPB.UI.Pages;
 using System;
@@ -11,7 +12,7 @@ namespace SPPB.Core
     /// </summary>
     public class UIManager : Singleton<UIManager>
     {
-        [SerializeField] private MotionSDKClient motionSDKClient;
+        [SerializeField] private SppbTestRunner motionSDKClient;
         [Header("Current Step")]
         [SerializeField] private FlowStep _currentStep = FlowStep.Home;
 
@@ -106,6 +107,14 @@ namespace SPPB.Core
             _isTransitioning = false;
             GoToStep(FlowStep.Home);
             motionSDKClient.ResetMotionSDK();
+
+            // 回首頁停止追蹤、清空骨架，下一輪到校準關再開始
+            var videoPoseTest = FindObjectOfType<VideoPoseTest>();
+            if (videoPoseTest != null)
+            {
+                videoPoseTest.StopTracking();
+                if (videoPoseTest.headTracker != null) videoPoseTest.headTracker.ReturnHome();
+            }
         }
 
         /// <summary>
