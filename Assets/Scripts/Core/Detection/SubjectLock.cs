@@ -8,7 +8,7 @@ namespace SPPB.Core.Detection
     ///  1. 身分特徵：校準成功時記下上衣(肩→髖下半段)與褲子(髖→膝)的平均顏色，之後每個新姿勢比對。
     ///     VideoPose 一次只輸出一人、不會記得是誰；旁人被抓到時顏色對不上 → OtherPerson。
     ///  2. 區域遮罩：鎖定後只把受測者周圍一圈影像交給 VideoPose，其他區域塗黑，旁人不會被看到。
-    ///  3. 對焦跟隨：自動對焦點跟著受測者（鏡頭需支援指定對焦點）。
+    ///  3. 對焦目標：提供受測者軀幹中心給 InputManager（FocusTargetPixel），實際設點由 CameraFocusAssist 負責。
     /// keyPoints 為 OpenPose BODY_25 排列、影像像素座標（y 向下，等於影像緩衝區的列索引），z=信心值。
     /// </summary>
     public class SubjectLock : MonoBehaviour
@@ -53,13 +53,6 @@ namespace SPPB.Core.Detection
         [Tooltip("遮罩範圍最小寬度（佔畫面寬比例）")]
         public float minRoiWidthRatio = 0.4f;
 
-        [Header("對焦跟隨")]
-        public bool focusFollow = true;
-        [Tooltip("對焦點更新間隔(秒)")]
-        public float focusInterval = 1.0f;
-        [Tooltip("中心移動超過畫面此比例才重新對焦")]
-        public float focusMoveRatio = 0.05f;
-
         [Header("除錯")]
         public bool logEnabled = true;
 
@@ -81,6 +74,19 @@ namespace SPPB.Core.Detection
         private float _lastPoseTime = -999f;
         public float RefBoxHeight { get; private set; }
 
+        /// <summary>
+        /// 對焦目標（影像像素座標，與 keyPoints 同座標）：校準中或鎖定追蹤中的受測者軀幹中心（外框中心偏上，避開背景）。
+        /// 偵測到其他人、離開或沒有有效人形時為 null，不會對焦到旁人。由 InputManager 在主執行緒讀取。
+        /// </summary>
+        public Vector2? FocusTargetPixel
+        {
+            get
+            {
+                if (!HasBox || CurrentState == State.OtherPerson || CurrentState == State.Lost) return null;
+                return new Vector2(LastBox.center.x, LastBox.yMin + LastBox.height * 0.4f);
+            }
+        }
+
         // ---- 內部 ----
         private VideoPoseTest _vpt;
         private readonly object _kpLock = new object();
@@ -100,8 +106,6 @@ namespace SPPB.Core.Detection
         private bool _hasLastCenter;
         private RectInt _roi;
         private bool _roiValid;
-        private float _focusTimer;
-        private Vector2 _lastFocusCenter = new Vector2(-1, -1);
         private float _logTimer;
         private float _lastProcessTime;
         // 最近一次比對的細項（除錯用）
@@ -135,7 +139,6 @@ namespace SPPB.Core.Detection
             _roiValid = false;
             HasBox = false;
             RefBoxHeight = 0f;
-            _lastFocusCenter = new Vector2(-1, -1);
         }
 
         /// <summary>校準成功時呼叫：開始取樣受測者特徵。</summary>
@@ -147,7 +150,7 @@ namespace SPPB.Core.Detection
             Log($"開始記錄受測者特徵（身形高度基準 {refBoxHeight:F0}px）");
         }
 
-        /// <summary>主執行緒每幀、PushFrame 前呼叫：更新狀態、遮罩影像、更新對焦。</summary>
+        /// <summary>主執行緒每幀、PushFrame 前呼叫：更新狀態、遮罩影像。</summary>
         public void ProcessFrame(Color32[] pixels, int w, int h)
         {
             if (_vpt == null || pixels == null || w <= 0 || h <= 0) return;
@@ -189,8 +192,7 @@ namespace SPPB.Core.Detection
             switch (CurrentState)
             {
                 case State.Unlocked:
-                    // 尚未鎖定（校準中）：只做對焦跟隨
-                    if (valid && HasBox) UpdateFocus(dt);
+                    // 尚未鎖定（校準中）：只更新外框（供 FocusTargetPixel）
                     break;
 
                 case State.Capturing:
@@ -282,7 +284,6 @@ namespace SPPB.Core.Detection
                 _lastCenter = center;
                 _hasLastCenter = true;
                 UpdateRoi(LastBox);
-                UpdateFocus(dt);
             }
         }
 
@@ -450,22 +451,6 @@ namespace SPPB.Core.Detection
                 if (x0 > 0) Array.Clear(px, row, x0);
                 if (x1 < w) Array.Clear(px, row + x1, w - x1);
             }
-        }
-
-        private void UpdateFocus(float dt)
-        {
-            if (!focusFollow || _vpt.inputManager == null || !HasBox) return;
-            _focusTimer += dt;
-            if (_focusTimer < focusInterval) return;
-            _focusTimer = 0f;
-
-            // 對焦在軀幹中心（外框中心偏上），避開背景
-            Vector2 c = new Vector2(LastBox.center.x, LastBox.yMin + LastBox.height * 0.4f);
-            if (_lastFocusCenter.x >= 0f && Vector2.Distance(c, _lastFocusCenter) < focusMoveRatio * ImageWidth) return;
-            _lastFocusCenter = c;
-            bool ok = _vpt.inputManager.SetFocusPoint(new Vector2(c.x / ImageWidth, c.y / ImageHeight));
-            if (logEnabled) Log(ok ? $"對焦跟隨受測者 ({c.x:F0},{c.y:F0})" : "鏡頭不支援指定對焦點");
-            if (!ok) focusFollow = false;   // 不支援就不再嘗試
         }
 
         private void Log(string msg)

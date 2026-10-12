@@ -4,6 +4,7 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Video;
+using SPPB.Core;
 
 public struct ImageBuffer
 {
@@ -126,9 +127,15 @@ abstract class IInput
 	public virtual IEnumerator Start() { yield return null; }
 	public virtual void Update() { }
 	public virtual void Stop() { }
-	/// <summary>設定自動對焦點（輸出影像 UV：u=x/W、v=y/H，與 VideoPose keyPoints 同座標）。不支援則回傳 false。</summary>
-	public virtual bool SetFocusPoint(Vector2 imageUV) => false;
+	/// <summary>對焦目標：ImageBuffer 像素座標（與 VideoPose keyPoints 同座標）；null = 沒有目標。</summary>
+	public Func<Vector2?> focusTarget;
+	public bool flipFocusY;
 	public virtual bool IsFocusPointSupported => false;
+	public virtual void TickFocus() { }
+	public virtual bool RequestFocus(string reason) => false;
+	public virtual bool IsFocusing => false;
+	public virtual void ResetFocusBaseline() { }
+	public virtual void OnPause(bool paused) { }
 }
 
 class CameraInput : IInput
@@ -137,21 +144,38 @@ class CameraInput : IInput
 	private Vector2 res;
 	private bool front, wide;
 	private WebCamTexture webcam = null;
-	private Vector2 _focusPoint = new Vector2(0.5f, 0.5f);   // 相機 UV
 	private bool _focusSupported;
-	public bool focusInvertY = false;                       // 若實測對焦上下相反，設 true
+	private CameraFocusAssist focus;   // 唯一會寫 autoFocusPoint 的地方
 
 	public override bool IsFocusPointSupported => webcam != null && _focusSupported;
 
-	public override bool SetFocusPoint(Vector2 imageUV)
+	public override void TickFocus() => focus?.Tick();
+
+	/// focusTarget（ImageBuffer 像素座標）→ autoFocusPoint 座標。
+	/// WebCamTexture 的 uv 跟 autoFocusPoint 是同一套座標（感光元件方向、原點左下），所以只要反推 TransformTexture。
+	Vector2? FocusTargetUV()
 	{
-		if (webcam == null || transformed == null) return false;
-		Vector2 src = transformed.ToSourceUV(imageUV);
-		if (focusInvertY) src.y = 1f - src.y;
-		_focusPoint = new Vector2(Mathf.Clamp01(src.x), Mathf.Clamp01(src.y));
-		if (!_focusSupported) return false;
-		webcam.autoFocusPoint = _focusPoint;
+		var p = focusTarget?.Invoke();
+		if (!p.HasValue || transformed == null) return null;
+		var uv = new Vector2(p.Value.x / transformed.width, p.Value.y / transformed.height);
+		if (flipFocusY) uv.y = 1f - uv.y;
+		return transformed.ToSourceUV(uv);
+	}
+
+	public override bool RequestFocus(string reason)
+	{
+		var uv = FocusTargetUV();
+		if (focus == null || !uv.HasValue) return false;
+		focus.FocusAt(uv.Value, reason);
 		return true;
+	}
+
+	public override bool IsFocusing => focus != null && focus.IsScanning;
+	public override void ResetFocusBaseline() => focus?.ResetBaseline();
+
+	public override void OnPause(bool paused)
+	{
+		if (paused) focus?.OnPause();
 	}
 
 	public CameraInput(Vector2 res, bool front = true, bool wide = true)
@@ -214,11 +238,11 @@ class CameraInput : IInput
 			deviceName = WebCamTexture.devices[id].name;
 		}
 		_focusSupported = WebCamTexture.devices.Any(d => d.name == deviceName && d.isAutoFocusPointSupported);
+		// 不設 autoFocusPoint：保持 null 才是連續自動對焦（設了就變單次對焦，之後不再追焦）
 		webcam = new WebCamTexture(deviceName, (int)res.x, (int)res.y, 30)
 		{
 			name = "WebCamTexture",
 			filterMode = FilterMode.Point,
-			autoFocusPoint = new Vector2(0.5f, 0.5f)
 		};
 		webcam.Play();
 		while (webcam.width == 16 && webcam.height == 16)
@@ -230,23 +254,32 @@ class CameraInput : IInput
 		// 	transformed = new TransformTexture(webcam, webcam.videoRotationAngle, new Vector2(-1, webcam.videoVerticallyMirrored ? 1 : -1) * flip);
 		// #endif
 		transformed = new TransformTexture(webcam, webcam.videoRotationAngle, new Vector2(-1, webcam.videoVerticallyMirrored ? 1 : -1) * flip);
+		focus = new CameraFocusAssist(webcam, FocusTargetUV);
 	}
 	public override void Update()
 	{
 		try
 		{
 			// if (webcam.didUpdateThisFrame)
-			OnNewFrame(new ImageBuffer(webcam.updateCount, transformed.GetPixels32(), transformed.width, transformed.height));
+			var pixels = transformed.GetPixels32();
+			// 清晰度取樣要在送出前：訂閱端（SubjectLock）會把受測者以外區域塗黑
+			if (webcam.didUpdateThisFrame)
+				focus?.OnCameraFrame(pixels, transformed.width, transformed.height);
+			OnNewFrame(new ImageBuffer(webcam.updateCount, pixels, transformed.width, transformed.height));
 			webcam.IncrementUpdateCount();
-			if (webcam.updateCount % 300 == 0)// 每 300 幀重新對焦一次（對焦點跟著受測者，預設畫面中央）
-				webcam.autoFocusPoint = _focusPoint;
+			// 這裡不可以設 autoFocusPoint：定期重設會讓鏡頭一直重新掃描（見 CameraFocusAssist）
 		}
 		catch (NullReferenceException e)
 		{
 			Debug.Log(e);
 		}
 	}
-	public override void Stop() => webcam.Stop();
+	public override void Stop()
+	{
+		focus?.Dispose();
+		focus = null;
+		webcam?.Stop();
+	}
 }
 
 class VideoInput : IInput
@@ -303,6 +336,18 @@ public class InputManager : MonoBehaviour
 	private IInput input;
 	public event OnNewFrame OnNewFrame;
 
+	[Header("自動對焦")]
+	[Tooltip("對焦目標換算時把 y 上下翻轉。實機確認對焦區域上下顛倒時才勾（見 Docs/CameraAutoFocus.md 7.3）。開相機時套用")]
+	public bool flipFocusY = false;
+	/// <summary>畫面中出現人時（或人離開 PersonGoneS 秒後再出現）自動對人身上對焦一次。測驗計時中由 TestPage 關閉。</summary>
+	[NonSerialized] public bool focusOnPersonAppear = true;
+	/// <summary>對焦目標：回傳 ImageBuffer 像素座標，null = 目前沒有目標。在主執行緒呼叫。</summary>
+	public Func<Vector2?> focusTargetProvider;
+
+	const float PersonGoneS = 2f;   // 人消失超過這麼久，下次出現時再對焦一次
+	float lastPersonTime = -10f;
+	bool personArmed = true;
+
 	void OnEnable() => StartCoroutine(Initialize());
 	IEnumerator Initialize()
 	{
@@ -317,6 +362,8 @@ public class InputManager : MonoBehaviour
 			input = new CameraInput(cameraId);
 		input.OnNewFrameEvent += (ImageBuffer ibuf) => OnNewFrame?.Invoke(ibuf);
 		input.flip = flip;
+		input.flipFocusY = flipFocusY;
+		input.focusTarget = FocusTargetPixel;
 		yield return input.Start();
 
 		if (rawImage != null)
@@ -337,8 +384,30 @@ public class InputManager : MonoBehaviour
 		input = null;
 	}
 
-	/// <summary>設定自動對焦點（影像 UV：u=x/W、v=y/H，與 VideoPose keyPoints 同座標）。</summary>
-	public bool SetFocusPoint(Vector2 imageUV) => input != null && input.SetFocusPoint(imageUV);
 	public bool IsFocusPointSupported => input != null && input.IsFocusPointSupported;
+	/// <summary>對目前的目標對焦一次，約 4 秒後自動切回連續對焦。沒有目標時回傳 false。不要每一幀都呼叫。</summary>
+	public bool RequestFocus(string reason) => input != null && input.RequestFocus(reason);
+	/// <summary>剛觸發對焦，鏡頭可能還在掃描（畫面可能糊）。</summary>
+	public bool IsFocusing => input != null && input.IsFocusing;
+	/// <summary>畫面內容大幅改變（頭部轉動）時呼叫，清晰度參考值重新累積。</summary>
+	public void ResetFocusBaseline() => input?.ResetFocusBaseline();
+
+	void Update()
+	{
+		if (input == null) return;
+		float now = Time.unscaledTime;
+		if (FocusTargetPixel().HasValue)
+		{
+			// 測驗計時中不因「人出現」設點，但仍當作已看到，測驗結束時不補觸發
+			if (personArmed && (!focusOnPersonAppear || RequestFocus("person-appeared"))) personArmed = false;
+			lastPersonTime = now;
+		}
+		else if (now - lastPersonTime > PersonGoneS) personArmed = true;
+		input.TickFocus();   // 從 Update 呼叫，不要從 OnRenderObject（每台 Camera 都會叫一次）
+	}
+
+	Vector2? FocusTargetPixel() => focusTargetProvider?.Invoke();
+
+	void OnApplicationPause(bool paused) => input?.OnPause(paused);
 	void OnRenderObject() => input?.Update();
 }

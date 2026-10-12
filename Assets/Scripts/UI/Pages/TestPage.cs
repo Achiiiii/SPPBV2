@@ -324,8 +324,12 @@ namespace SPPB.UI.Pages
             UpdateSubjectSkeleton();
 
             // 頭部追蹤：測驗進行中凍結（轉頭會改變相機座標，影響腳距/步行深度判定）；暫停重新定位時放開讓頭找人
+            // 自動對焦：測驗進行中不因「人出現」設點（每次設點鏡頭重新掃描、畫面糊 0.4~2 秒），只保留對焦卡住時的救回
+            bool testRunning = _testState == TestState.Testing && !_repositionPaused && !_repositionSuccessShowing;
             if (videoPoseTest != null && videoPoseTest.headTracker != null)
-                videoPoseTest.headTracker.Frozen = _testState == TestState.Testing && !_repositionPaused && !_repositionSuccessShowing;
+                videoPoseTest.headTracker.Frozen = testRunning;
+            if (videoPoseTest != null && videoPoseTest.inputManager != null)
+                videoPoseTest.inputManager.focusOnPersonAppear = !testRunning;
 
             // Handle test timing
             switch (_testState)
@@ -1666,6 +1670,7 @@ namespace SPPB.UI.Pages
 
             _aposeHoldTimer = 0f;
             if (videoPoseTest != null && videoPoseTest.headTracker != null) videoPoseTest.headTracker.Frozen = false;
+            if (videoPoseTest != null && videoPoseTest.inputManager != null) videoPoseTest.inputManager.focusOnPersonAppear = true;
             ShowSkeleton(false);
 
             // 清除重新定位狀態

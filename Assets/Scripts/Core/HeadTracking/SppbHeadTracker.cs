@@ -270,6 +270,9 @@ namespace SPPB.Core.HeadTracking
         {
             yaw = Mathf.Clamp(yaw, yawMinDeg, yawMaxDeg);
             pitch = Mathf.Clamp(pitch, pitchMinDeg, pitchMaxDeg);
+            // 頭要轉動 → 畫面內容會變：清晰度參考值重新累積，避免轉完頭被誤判為對焦卡住
+            if ((Mathf.Abs(yaw - _yawActual) > 1f || Mathf.Abs(pitch - _pitchActual) > 1f) && _vpt != null && _vpt.inputManager != null)
+                _vpt.inputManager.ResetFocusBaseline();
             bool okY = Nuwa.setMotorPositionInDegree(Nuwa.NuwaMotorType.neck_z, yaw, motorSpeed);
 
             // 垂直(neck_y)馬達每收到指令就重新起步：同目標每 0.125 秒重送會讓它還沒動就被重置而卡住

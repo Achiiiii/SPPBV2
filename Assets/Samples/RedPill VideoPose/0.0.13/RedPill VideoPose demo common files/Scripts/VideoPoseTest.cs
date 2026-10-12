@@ -11,7 +11,7 @@ public class VideoPoseTest : MonoBehaviour
 	public bool upperBodyMode = false;
 	public bool detectAPose = true;
 	public string videoPoseData;
-	/// <summary>受測者鎖定（身分比對、區域遮罩、對焦跟隨）。</summary>
+	/// <summary>受測者鎖定（身分比對、區域遮罩、提供對焦目標）。</summary>
 	public SPPB.Core.Detection.SubjectLock subject { get; private set; }
 	/// <summary>凱比頭部自動追蹤（全身入鏡）。</summary>
 	public SPPB.Core.HeadTracking.SppbHeadTracker headTracker { get; private set; }
@@ -38,6 +38,8 @@ public class VideoPoseTest : MonoBehaviour
 		subject = GetComponent<SPPB.Core.Detection.SubjectLock>();
 		if (subject == null) subject = gameObject.AddComponent<SPPB.Core.Detection.SubjectLock>();
 		subject.Init(this);
+		// 自動對焦目標：受測者軀幹中心（偵測到其他人／離開時為 null）
+		inputManager.focusTargetProvider = () => subject.FocusTargetPixel;
 		headTracker = GetComponent<SPPB.Core.HeadTracking.SppbHeadTracker>();
 		if (headTracker == null) headTracker = gameObject.AddComponent<SPPB.Core.HeadTracking.SppbHeadTracker>();
 		headTracker.Init(this);
@@ -46,7 +48,7 @@ public class VideoPoseTest : MonoBehaviour
 			imageWidth = buffer.width;
 			imageHeight = buffer.height;
 			if (!_trackingEnabled) return;   // 校準前不餵影像
-			// 鎖定受測者：比對身分、把受測者以外區域塗黑、對焦跟隨（主執行緒，須在 PushFrame 前）
+			// 鎖定受測者：比對身分、把受測者以外區域塗黑（主執行緒，須在 PushFrame 前）
 			subject.ProcessFrame(buffer.data, buffer.width, buffer.height);
 			videoPose.PushFrame(buffer.id, buffer.data, buffer.width, buffer.height, 4);
 		};
