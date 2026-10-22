@@ -254,7 +254,7 @@ namespace SPPB.UI.Components
         {
             if (_icon != null && sprite != null)
             {
-                _icon.sprite = sprite;
+                _icon.sprite = SPPB.Core.Lang.S(sprite);
             }
         }
 
@@ -265,7 +265,7 @@ namespace SPPB.UI.Components
         {
             if (_titleImage != null && sprite != null)
             {
-                _titleImage.sprite = sprite;
+                _titleImage.sprite = SPPB.Core.Lang.S(sprite);
             }
         }
 
@@ -276,7 +276,7 @@ namespace SPPB.UI.Components
         {
             if (_unitImage != null && sprite != null)
             {
-                _unitImage.sprite = sprite;
+                _unitImage.sprite = SPPB.Core.Lang.S(sprite);
             }
         }
 

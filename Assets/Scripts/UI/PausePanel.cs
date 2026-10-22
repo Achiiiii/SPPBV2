@@ -16,8 +16,14 @@ namespace SPPB.UI
         [SerializeField] private Button _resumeButton;        // Resume button
         [SerializeField] private Button _exitButton;          // Exit button
 
-        private void Awake()
+        private bool _initialized;
+
+        private void Awake() => Initialize();
+
+        private void Initialize()
         {
+            if (_initialized) return;
+            _initialized = true;
             // Bind button events
             if (_resumeButton != null)
             {
@@ -53,11 +59,24 @@ namespace SPPB.UI
             float y = ((RectTransform)_resumeButton.transform).anchoredPosition.y;
             float cx = parentRt.rect.width > 0f ? parentRt.rect.width * 0.5f : 185.5f;
 
-            var yes = CreateButton(parent, "YesButton", "是", Color.white, new Color(0.2f, 0.2f, 0.2f, 1f), font, new Vector2(cx - 70f, y));
-            var no = CreateButton(parent, "NoButton", "否", new Color(1f, 0.42f, 0.1f, 1f), Color.white, font, new Vector2(cx + 70f, y));
+            var yes = CreateButton(parent, "YesButton", Lang.T("是", "Yes"), Color.white, new Color(0.2f, 0.2f, 0.2f, 1f), font, new Vector2(cx - 70f, y));
+            var no = CreateButton(parent, "NoButton", Lang.T("否", "No"), new Color(1f, 0.42f, 0.1f, 1f), Color.white, font, new Vector2(cx + 70f, y));
             yes.onClick.AddListener(OnExitClicked);
             no.onClick.AddListener(OnResumeClicked);
+            _yesLabel = yes.GetComponentInChildren<TextMeshProUGUI>();
+            _noLabel = no.GetComponentInChildren<TextMeshProUGUI>();
+            Lang.Changed += RefreshLabels;   // 中英切換時更新按鈕文字
         }
+
+        private TextMeshProUGUI _yesLabel, _noLabel;
+
+        private void RefreshLabels()
+        {
+            if (_yesLabel != null) _yesLabel.text = Lang.T("是", "Yes");
+            if (_noLabel != null) _noLabel.text = Lang.T("否", "No");
+        }
+
+        private void OnDestroy() => Lang.Changed -= RefreshLabels;
 
         private const float ButtonW = 120f, ButtonH = 48f;
         private static Sprite s_roundSprite;
@@ -127,6 +146,7 @@ namespace SPPB.UI
         /// </summary>
         public void Show()
         {
+            Initialize();   // 面板物件一開始未啟用時，Awake 會晚於 Show 執行並把面板關掉
             if (_panel != null)
             {
                 _panel.SetActive(true);

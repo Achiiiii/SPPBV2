@@ -6,6 +6,7 @@ using SPPB.Core.Detection;
 using SPPB.Data;
 using SPPB.UI.Components;
 using System.Collections;
+using System.Linq;
 using UnityEngine.Events;
 
 namespace SPPB.UI.Pages
@@ -186,6 +187,9 @@ namespace SPPB.UI.Pages
         {
             base.Initialize();
 
+            // V2.5：測驗中提示放大（必須在記錄提示圖原始大小之前，否則跳出動畫會縮回原尺寸）
+            ApplyLargeTestLayout();
+
             // Cache original scales of all hint images
             CacheHintImageOriginalScale(_hintImage_Countdown3);
             CacheHintImageOriginalScale(_hintImage_Countdown2);
@@ -203,6 +207,102 @@ namespace SPPB.UI.Pages
             // Ensure all hint images are initially hidden
             HideAllHintImages();
         }
+
+        #region V2.5 提示放大
+
+        [Header("V2.5 測驗中提示放大")]
+        [Tooltip("短提示（測驗開始!/校準成功!/測驗失敗!/倒數）放大倍率")] [SerializeField] private float _hintScaleShort = 2f;
+        [Tooltip("完成提示（完成第 N 種姿勢…）放大倍率")] [SerializeField] private float _hintScaleLong = 1.6f;
+        [Tooltip("中央提示最大寬度（畫面 1024，左右各留約 40）")] [SerializeField] private float _hintMaxWidth = 940f;
+        [Tooltip("右下資訊區（次數框＋計時/距離框＋維持動作!）放大倍率")] [SerializeField] private float _infoPanelScale = 1.6f;
+        [Tooltip("左上站姿圖示放大倍率")] [SerializeField] private float _stanceIconScale = 1.4f;
+
+        private bool _largeLayoutApplied;
+
+        /// <summary>
+        /// 放大測驗中的提示 UI，位置依原本的對齊點校準：
+        ///  - 中央提示：以自身中心放大，太寬的依 _hintMaxWidth 限制。
+        ///  - 右下資訊區：次數框與計時框原本上下疊放，各自放大會互相重疊 → 當成一組，以兩個外框聯集的右下角為基準一起放大，
+        ///    「維持動作!」也一起，維持原本「在計時框正上方」的相對位置。
+        ///  - 站姿圖示：以圖中玻璃方塊的左上角為基準放大（圖檔右側/下方是陰影留白）。
+        /// </summary>
+        private void ApplyLargeTestLayout()
+        {
+            if (_largeLayoutApplied) return;
+            _largeLayoutApplied = true;
+
+            foreach (var img in new[] { _hintImage_Countdown3, _hintImage_Countdown2, _hintImage_Countdown1,
+                                        _hintImage_TestStart, _hintImage_BalanceFailed, _hintImage_APoseSuccess })
+                ScaleAroundCenter(img, _hintScaleShort);
+            foreach (var img in new[] { _hintImage_BalanceSideBySide_Complete, _hintImage_BalanceSemiTandem_Complete,
+                                        _hintImage_BalanceTandem_Complete, _hintImage_SitStand_Complete, _hintImage_Walk_Complete })
+                ScaleAroundCenter(img, _hintScaleLong);
+
+            // 右下資訊區
+            var timerRt = _timerDisplay != null ? (RectTransform)_timerDisplay.transform : null;
+            var counterRt = _counterDisplay != null ? (RectTransform)_counterDisplay.transform : null;
+            if (TryGetWorldBounds(out Rect group, FrameOf(timerRt), FrameOf(counterRt)))
+            {
+                Vector3 corner = new Vector3(group.xMax, group.yMin, 0f);   // 右下角
+                var members = new System.Collections.Generic.List<Transform>();
+                if (timerRt != null) members.Add(timerRt);
+                if (counterRt != null) members.Add(counterRt);
+                if (_walkProgressBarRoot != null) members.Add(_walkProgressBarRoot.transform);
+                if (_hintImage_ActionCorrect != null) members.Add(_hintImage_ActionCorrect.transform);
+                foreach (var t in members.Distinct()) ScaleAboutPoint(t, corner, _infoPanelScale);
+            }
+
+            // 左上站姿圖示：玻璃方塊在圖檔中約位於 x 30%、y 3%（左上）
+            foreach (var img in new[] { _iconImage_BalanceSideBySide, _iconImage_BalanceSemiTandem, _iconImage_BalanceTandem, _iconImage_SitStand, _iconImage_Walk })
+            {
+                if (img == null) continue;
+                var c = new Vector3[4]; img.rectTransform.GetWorldCorners(c);   // 0 左下、1 左上、2 右上
+                float fy = img == _iconImage_Walk ? 0.1f : 0.03f;
+                Vector3 tileTopLeft = new Vector3(Mathf.Lerp(c[1].x, c[2].x, 0.3f), Mathf.Lerp(c[1].y, c[0].y, fy), 0f);
+                ScaleAboutPoint(img.transform, tileTopLeft, _stanceIconScale);
+            }
+            Debug.Log($"[TestPage] 提示放大：短提示×{_hintScaleShort} 完成提示×{_hintScaleLong} 資訊區×{_infoPanelScale} 站姿圖示×{_stanceIconScale}");
+        }
+
+        private void ScaleAroundCenter(Image img, float s)
+        {
+            if (img == null) return;
+            float w = img.rectTransform.rect.width * img.transform.localScale.x;
+            if (w > 0f) s = Mathf.Min(s, _hintMaxWidth / w);
+            img.transform.localScale *= s;
+        }
+
+        /// <summary>以世界座標 point 為不動點放大 t（位置與大小一起縮放）。</summary>
+        private static void ScaleAboutPoint(Transform t, Vector3 point, float s)
+        {
+            Vector3 p = t.position;
+            t.position = new Vector3(point.x + (p.x - point.x) * s, point.y + (p.y - point.y) * s, p.z);
+            t.localScale *= s;
+        }
+
+        private static RectTransform FrameOf(RectTransform root)
+        {
+            if (root == null) return null;
+            var f = root.Find("frame") as RectTransform;
+            return f != null ? f : root;
+        }
+
+        private static bool TryGetWorldBounds(out Rect r, params RectTransform[] rts)
+        {
+            r = default; bool any = false;
+            var c = new Vector3[4];
+            foreach (var rt in rts)
+            {
+                if (rt == null) continue;
+                rt.GetWorldCorners(c);
+                var b = Rect.MinMaxRect(c[0].x, c[0].y, c[2].x, c[2].y);
+                r = any ? Rect.MinMaxRect(Mathf.Min(r.xMin, b.xMin), Mathf.Min(r.yMin, b.yMin), Mathf.Max(r.xMax, b.xMax), Mathf.Max(r.yMax, b.yMax)) : b;
+                any = true;
+            }
+            return any;
+        }
+
+        #endregion
 
         /// <summary>
         /// Cache the original scale of a hint image
@@ -407,16 +507,16 @@ namespace SPPB.UI.Pages
         private float _guideCandidateTimer, _guideSpeakTimer, _guideFramingBadTimer, _guideOffCenterTimer, _guideLogTimer;
         [SerializeField] private float _guideMinLegTorsoRatio = 0.9f;   // 腿(髖→踝)/軀幹(頸→髖) 低於此 = 腳被切掉、是猜的
 
-        private const string GuideNoPerson = "請站到凱比正前方約 2 到 3 公尺，讓頭到腳都在畫面中，並站直、雙手往兩側斜下方張開成 A 字形";
-        private const string GuideTooClose = "太近了，請往後退幾步，雙手保持往兩側張開";
-        private const string GuideNotFull = "請往後退一點，讓頭到腳都在畫面內，雙手保持往兩側張開";
-        private const string GuideTooFar = "有點遠，請往前走近一點，雙手保持往兩側張開";
-        private const string GuideCenter = "請往畫面中間移動一點，雙手保持往兩側張開";
-        private const string GuideHeadOut = "請往後退一點，讓頭也在畫面內，雙手保持往兩側張開";
-        private const string GuideFeetOut = "請往後退一點，讓腳也在畫面內，雙手保持往兩側張開";
-        private const string GuideArmsOut = "請站到畫面中間，雙手張開但不要超出畫面";
-        private const string GuideArms = "位置很好，請站直，雙手往兩側斜下方張開成 A 字形";
-        private const string GuideHold = "很好，請保持這個姿勢不要動";
+        private static string GuideNoPerson => Lang.T("請站到凱比正前方約 2 到 3 公尺，讓頭到腳都在畫面中，並站直、雙手往兩側斜下方張開成 A 字形", "Please stand about 2 to 3 meters in front of Kebbi, with your whole body from head to feet on the screen. Stand straight and spread your arms down and out into an A shape.");
+        private static string GuideTooClose => Lang.T("太近了，請往後退幾步，雙手保持往兩側張開", "You are too close. Please take a few steps back, and keep your arms spread out.");
+        private static string GuideNotFull => Lang.T("請往後退一點，讓頭到腳都在畫面內，雙手保持往兩側張開", "Please step back a little so your whole body is on the screen, and keep your arms spread out.");
+        private static string GuideTooFar => Lang.T("有點遠，請往前走近一點，雙手保持往兩側張開", "You are a bit far. Please come a little closer, and keep your arms spread out.");
+        private static string GuideCenter => Lang.T("請往畫面中間移動一點，雙手保持往兩側張開", "Please move a little toward the center, and keep your arms spread out.");
+        private static string GuideHeadOut => Lang.T("請往後退一點，讓頭也在畫面內，雙手保持往兩側張開", "Please step back a little so your head is on the screen, and keep your arms spread out.");
+        private static string GuideFeetOut => Lang.T("請往後退一點，讓腳也在畫面內，雙手保持往兩側張開", "Please step back a little so your feet are on the screen, and keep your arms spread out.");
+        private static string GuideArmsOut => Lang.T("請站到畫面中間，雙手張開但不要超出畫面", "Please stand in the center, with your arms spread but inside the screen.");
+        private static string GuideArms => Lang.T("位置很好，請站直，雙手往兩側斜下方張開成 A 字形", "Good position. Please stand straight and spread your arms down and out into an A shape.");
+        private static string GuideHold => Lang.T("很好，請保持這個姿勢不要動", "Great. Please hold this pose and stay still.");
 
         private void ResetCalibrationGuidance()
         {
@@ -614,11 +714,11 @@ namespace SPPB.UI.Pages
             }
         }
 
-        private const string RepositionPauseText = "測驗暫停：偵測不到您，請回到畫面中央，對準人形框站好";
-        private const string RepositionPauseSpeech = "偵測不到您，測驗先暫停，請回到畫面中央，對準人形框站好";
-        private const string OtherPersonText = "測驗暫停：偵測到其他人（紅色骨架）。請旁人離開鏡頭範圍，受測者請站回人形框";
-        private const string OtherPersonSpeech = "偵測到其他人，測驗先暫停。請旁邊的人離開鏡頭範圍，受測者請站回人形框";
-        private const string SubjectConfirmedText = "已確認是受測者（綠色骨架），請站穩不要動";
+        private static string RepositionPauseText => Lang.T("測驗暫停：偵測不到您，請回到畫面中央，對準人形框站好", "Test paused: you are out of view. Please return to the center and line up with the body outline.");
+        private static string RepositionPauseSpeech => Lang.T("偵測不到您，測驗先暫停，請回到畫面中央，對準人形框站好", "I can't see you, so the test is paused. Please return to the center and line up with the body outline.");
+        private static string OtherPersonText => Lang.T("測驗暫停：偵測到其他人（紅色骨架）。請旁人離開鏡頭範圍，受測者請站回人形框", "Test paused: another person detected (red dots). Others please step out of view; the participant please return to the outline.");
+        private static string OtherPersonSpeech => Lang.T("偵測到其他人，測驗先暫停。請旁邊的人離開鏡頭範圍，受測者請站回人形框", "Another person is detected, so the test is paused. Others please step out of view, and the participant please return to the outline.");
+        private static string SubjectConfirmedText => Lang.T("已確認是受測者（綠色骨架），請站穩不要動", "Participant confirmed (green dots). Please stand still.");
 
         private Presence _repositionShownStatus;
         private Presence _repositionReason;
@@ -887,7 +987,7 @@ namespace SPPB.UI.Pages
         private IEnumerator ResumeSequence()
         {
             ShowHintImage(_hintImage_APoseSuccess);
-            string resumeText = _repositionReason == Presence.OtherPerson ? "已確認是受測者，準備繼續測驗" : "定位成功，準備繼續測驗";
+            string resumeText = _repositionReason == Presence.OtherPerson ? Lang.T("已確認是受測者，準備繼續測驗", "Participant confirmed. The test will continue.") : Lang.T("定位成功，準備繼續測驗", "Position confirmed. The test will continue.");
             SetRepositionDialog(resumeText);
             NuwaManager.Instance.NuwaTTS(resumeText);
             yield return new WaitForSeconds(_repositionSuccessDisplay);
@@ -903,7 +1003,7 @@ namespace SPPB.UI.Pages
             }
 
             if (_hintImage_TestStart != null) ShowHintImage(_hintImage_TestStart);
-            NuwaManager.Instance.NuwaTTS("繼續");
+            NuwaManager.Instance.NuwaTTS(Lang.T("繼續", "Continue"));
             ResumeAfterReposition();
 
             yield return new WaitForSeconds(0.8f);
@@ -931,7 +1031,7 @@ namespace SPPB.UI.Pages
             switch (step)
             {
                 case FlowStep.APoseCalibration:
-                    _nuwaText = "請將身體對準畫面中的人型圖示，定位成功後會提醒您。";
+                    _nuwaText = Lang.T("請將身體對準畫面中的人型圖示，定位成功後會提醒您。", "Please line up your body with the outline on the screen. I will let you know when you are in position.");
                     _nuwaCompleteCallback = OnCalibrateAction;
                     break;
 
@@ -1326,26 +1426,26 @@ namespace SPPB.UI.Pages
                 switch (_currentStep)
                 {
                     case FlowStep.BalanceSideBySide_Test:
-                        return "第一種姿勢沒有維持成功，接下來進行第二種姿勢測試";
+                        return Lang.T("第一種姿勢沒有維持成功，接下來進行第二種姿勢測試", "The first stance was not held. Next is the second stance.");
                     case FlowStep.BalanceSemiTandem_Test:
-                        return "第二種姿勢沒有維持成功，接下來進行第三種姿勢測試";
+                        return Lang.T("第二種姿勢沒有維持成功，接下來進行第三種姿勢測試", "The second stance was not held. Next is the third stance.");
                     default:
-                        return "第三種姿勢沒有維持成功，接下來進行坐站測試";
+                        return Lang.T("第三種姿勢沒有維持成功，接下來進行坐站測試", "The third stance was not held. Next is the Chair Stand Test.");
                 }
             }
 
             switch (_currentStep)
             {
                 case FlowStep.BalanceSideBySide_Test:
-                    return "已完成第一種姿勢測試";
+                    return Lang.T("已完成第一種姿勢測試", "First stance complete.");
                 case FlowStep.BalanceSemiTandem_Test:
-                    return "已完成第二種姿勢測試"; ;
+                    return Lang.T("已完成第二種姿勢測試", "Second stance complete."); ;
                 case FlowStep.BalanceTandem_Test:
-                    return "已完成平衡測試，接下來進行坐站測試";
+                    return Lang.T("已完成平衡測試，接下來進行坐站測試", "Balance Test complete. Next is the Chair Stand Test.");
                 case FlowStep.SitStand_Test:
-                    return "已完成坐站測試，最後進行步態速度測試";
+                    return Lang.T("已完成坐站測試，最後進行步態速度測試", "Chair Stand Test complete. Last is the Gait Speed Test.");
                 case FlowStep.Walk_Test:
-                    return "恭喜您已完成所有測試";
+                    return Lang.T("恭喜您已完成所有測試", "Congratulations, you have completed all the tests.");
                 default:
                     return null;
             }
@@ -1415,7 +1515,7 @@ namespace SPPB.UI.Pages
                 _testState = TestState.Idle;
                 _lastCountdown = -1;
                 ShowHintImage(_hintImage_TestStart);
-                NuwaManager.Instance.NuwaTTS("開始");
+                NuwaManager.Instance.NuwaTTS(Lang.T("開始", "Start"));
 
                 // Start GO hint fade out sequence
                 if (_goFadeOutCoroutine != null)
@@ -1986,22 +2086,22 @@ namespace SPPB.UI.Pages
             switch (step)
             {
                 case FlowStep.APoseCalibration:
-                    return "請將身體對準畫面中的人型進行姿勢校準";
+                    return Lang.T("請將身體對準畫面中的人型進行姿勢校準", "Line up your body with the outline to calibrate");
 
                 case FlowStep.BalanceSideBySide_Test:
-                    return "雙腳併攏站立，請站好並保持平衡";
+                    return Lang.T("雙腳併攏站立，請站好並保持平衡", "Stand with your feet side by side and keep your balance");
 
                 case FlowStep.BalanceSemiTandem_Test:
-                    return "半步站立，請將一隻腳稍微往前放";
+                    return Lang.T("半步站立，請將一隻腳稍微往前放", "Semi-tandem: place one foot half a step forward");
 
                 case FlowStep.BalanceTandem_Test:
-                    return "腳跟對腳尖，請將一隻腳放在另一隻腳前面";
+                    return Lang.T("腳跟對腳尖，請將一隻腳放在另一隻腳前面", "Tandem: place one foot directly in front of the other");
 
                 case FlowStep.SitStand_Test:
-                    return "請坐在椅子上，雙手交叉抱胸，連續站立並坐下5次";
+                    return Lang.T("請坐在椅子上，雙手交叉抱胸，連續站立並坐下5次", "Sit with arms crossed, then stand up and sit down 5 times");
 
                 case FlowStep.Walk_Test:
-                    return "請從 4.5 公尺外的起點出發，以平常走路的速度向我走過來";
+                    return Lang.T("請從 4.5 公尺外的起點出發，以平常走路的速度向我走過來", "Start 4.5 m away and walk toward me at your normal pace");
 
                 default:
                     return "";

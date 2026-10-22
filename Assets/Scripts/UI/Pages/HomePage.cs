@@ -99,6 +99,7 @@ namespace SPPB.UI.Pages
             TopBarManager.Instance.SetTitleImage(_homeTitleSprite);
             TopBarManager.Instance.ShowInstructionButton(true);
             TopBarManager.Instance.ShowExitButton(true);
+            TopBarManager.Instance.ShowLangButton(true);   // 中英切換只在首頁
         }
     }
 }

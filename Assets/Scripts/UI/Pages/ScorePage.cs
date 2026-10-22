@@ -445,26 +445,26 @@ namespace SPPB.UI.Pages
 
         // 各評級的小評語：文字（上方對話框，精簡）＋語音（較完整）。
         // 只做衛教提醒、不做診斷；分級依 SPPB 總分：10~12 / 7~9 / 4~6 / 0~3。
-        private static readonly string[] RatingDialog =
+        private static string[] RatingDialog => new[]   // 屬性：每次依目前語言取值
         {
-            "表現很好！平衡、起身和走路都很穩健，請繼續保持運動習慣",               // 10~12
-            "大致不錯，部分項目稍微吃力，建議多做下肢肌力與平衡練習",               // 7~9
-            "下肢功能有些退化、跌倒風險較高，建議諮詢醫師或物理治療師",             // 4~6
-            "這次有些項目較難完成，建議儘快請專業人員評估，活動時注意安全",         // 0~3
+            Lang.T("表現很好！平衡、起身和走路都很穩健，請繼續保持運動習慣", "Great job! Your balance, standing and walking are steady. Keep exercising"),               // 10~12
+            Lang.T("大致不錯，部分項目稍微吃力，建議多做下肢肌力與平衡練習", "Fairly good. Some parts were harder; practice leg strength and balance"),               // 7~9
+            Lang.T("下肢功能有些退化、跌倒風險較高，建議諮詢醫師或物理治療師", "Leg function has declined and fall risk is higher; consult a doctor or PT"),             // 4~6
+            Lang.T("這次有些項目較難完成，建議儘快請專業人員評估，活動時注意安全", "Some tests were hard to finish; please see a professional soon and move safely"),         // 0~3
         };
-        private static readonly string[] RatingSpeech =
+        private static string[] RatingSpeech => new[]
         {
-            "您的表現很好！平衡、起身和走路都很穩健，下肢功能維持得不錯。請繼續保持規律運動和多活動的好習慣。",
-            "您的下肢功能大致不錯，不過有些項目做起來稍微吃力，屬於需要多留意的階段。建議平常多做坐站練習、散步和平衡練習，並定期再來測一次。",
-            "您的下肢功能有些退化，跌倒的風險比較高。建議諮詢醫師或物理治療師，安排適合您的運動訓練，平常走路和上下樓梯時也請多注意安全。",
-            "這次測驗有些項目比較難完成，表示下肢功能需要多加留意。建議儘快請醫師或專業人員做進一步評估，活動時最好有人陪同，注意安全。",
+            Lang.T("您的表現很好！平衡、起身和走路都很穩健，下肢功能維持得不錯。請繼續保持規律運動和多活動的好習慣。", "Great job! Your balance, standing up and walking are all steady, and your leg function is in good shape. Please keep up regular exercise and stay active."),
+            Lang.T("您的下肢功能大致不錯，不過有些項目做起來稍微吃力，屬於需要多留意的階段。建議平常多做坐站練習、散步和平衡練習，並定期再來測一次。", "Your leg function is fairly good, but some tests were a little hard, so it is worth paying attention. Try practicing sit-to-stand, walking and balance exercises, and test again regularly."),
+            Lang.T("您的下肢功能有些退化，跌倒的風險比較高。建議諮詢醫師或物理治療師，安排適合您的運動訓練，平常走路和上下樓梯時也請多注意安全。", "Your leg function has declined somewhat, and your risk of falling is higher. Please consult a doctor or physical therapist about suitable exercise, and take extra care when walking or using stairs."),
+            Lang.T("這次測驗有些項目比較難完成，表示下肢功能需要多加留意。建議儘快請醫師或專業人員做進一步評估，活動時最好有人陪同，注意安全。", "Some tests were hard to complete this time, so your leg function needs attention. Please see a doctor or professional for a further check soon, and have someone with you when you move around."),
         };
 
         private void ShowRatingComment(int totalScore)
         {
             int i = totalScore >= 10 ? 0 : totalScore >= 7 ? 1 : totalScore >= 4 ? 2 : 3;
             if (TopBarManager.Instance != null) TopBarManager.Instance.SetDialogTextWithAnimation(RatingDialog[i]);
-            if (NuwaManager.Instance != null) NuwaManager.Instance.NuwaTTS($"您的總分是 {totalScore} 分。{RatingSpeech[i]}");
+            if (NuwaManager.Instance != null) NuwaManager.Instance.NuwaTTS(Lang.T($"您的總分是 {totalScore} 分。", $"Your total score is {totalScore}. ") + RatingSpeech[i]);
         }
 
         /// <summary>
@@ -572,7 +572,7 @@ namespace SPPB.UI.Pages
 
             // Set title and dialog content
             TopBarManager.Instance.SetTitleImage(_scoreTitleSprite);
-            TopBarManager.Instance.SetDialogTextWithAnimation("感謝您的配合，以下是您的測驗成績");
+            TopBarManager.Instance.SetDialogTextWithAnimation(Lang.T("感謝您的配合，以下是您的測驗成績", "Thank you. Here are your test results"));
         }
 
         #endregion

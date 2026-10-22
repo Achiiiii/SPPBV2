@@ -33,8 +33,8 @@ namespace SPPB.Core.Detection
             {
                 reason = $"手臂張開角度 左{leftArm:F0}° 右{rightArm:F0}°（需 {armMinDeg:F0}~{armMaxDeg:F0}°）";
                 hint = (leftArm > armMaxDeg || rightArm > armMaxDeg) && leftArm >= armMinDeg && rightArm >= armMinDeg
-                    ? "手臂請放低一點，斜斜向下張開就好"
-                    : "請把雙手往兩側斜下方張開，像 A 字形";
+                    ? Lang.T("手臂請放低一點，斜斜向下張開就好", "Lower your arms a little; just spread them down and out.")
+                    : Lang.T("請把雙手往兩側斜下方張開，像 A 字形", "Spread your arms down and out, like the letter A.");
                 return false;
             }
 
@@ -43,7 +43,7 @@ namespace SPPB.Core.Detection
             if (leftElbow < limbStraightMinDeg || rightElbow < limbStraightMinDeg)
             {
                 reason = $"手肘未打直 左{leftElbow:F0}° 右{rightElbow:F0}°";
-                hint = "請把手肘伸直";
+                hint = Lang.T("請把手肘伸直", "Please straighten your elbows.");
                 return false;
             }
 
@@ -52,7 +52,7 @@ namespace SPPB.Core.Detection
             if (leftKnee < limbStraightMinDeg || rightKnee < limbStraightMinDeg)
             {
                 reason = $"膝蓋未打直 左{leftKnee:F0}° 右{rightKnee:F0}°";
-                hint = "請站直，膝蓋伸直";
+                hint = Lang.T("請站直，膝蓋伸直", "Please stand straight with your knees straight.");
                 return false;
             }
 

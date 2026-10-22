@@ -28,11 +28,20 @@ public class VideoPoseTest : MonoBehaviour
 	public void Start()
 	{
 		Screen.sleepTimeout = SleepTimeout.NeverSleep;
-		videoPose = new VideoPose();
-		bool res = videoPose.Start(OnPose);
-		Debug.Log($"VideoPose Start: {res}");
-		videoPose.Reset(fovy: 120, detect_apose: detectAPose);
-		videoPose.SetUpperBodyMode(upperBodyMode);
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+		// Windows 版只用來檢查介面：VideoPose 原生追蹤器在 Windows 啟動會當掉，一律跳過（凱比 Android 不受影響）
+		bool skipVideoPose = true;
+#else
+		bool skipVideoPose = false;
+#endif
+		if (!skipVideoPose)
+		{
+			videoPose = new VideoPose();
+			bool res = videoPose.Start(OnPose);
+			Debug.Log($"VideoPose Start: {res}");
+			videoPose.Reset(fovy: 120, detect_apose: detectAPose);
+			videoPose.SetUpperBodyMode(upperBodyMode);
+		}
 		if (inputManager == null)
 			inputManager = GetComponent<InputManager>();
 		subject = GetComponent<SPPB.Core.Detection.SubjectLock>();
@@ -48,7 +57,7 @@ public class VideoPoseTest : MonoBehaviour
 			if (!_trackingEnabled) return;   // 校準前不餵影像
 			// 鎖定受測者：比對身分、把受測者以外區域塗黑、對焦跟隨（主執行緒，須在 PushFrame 前）
 			subject.ProcessFrame(buffer.data, buffer.width, buffer.height);
-			videoPose.PushFrame(buffer.id, buffer.data, buffer.width, buffer.height, 4);
+			if (videoPose != null) videoPose.PushFrame(buffer.id, buffer.data, buffer.width, buffer.height, 4);
 		};
 		inputManager.rawImage.enabled = showGUI;
 		if (TryGetComponent(out touch))

@@ -35,10 +35,120 @@ namespace SPPB.Core
 
         private Coroutine _dialogPopCoroutine;
 
+        // ---------- 中英切換按鈕（V2.5，只在首頁顯示，放在「使用方法」左邊） ----------
+        private Button _langButton;
+        private TextMeshProUGUI _langLabel;
+
+        /// <summary>
+        /// 建立中英切換按鈕（底圖 Resources/UI/lang_button.png，與原「使用方法」按鈕同款 130x88）。
+        /// 場景已拿掉「使用方法」按鈕，所以放在它原本的位置：「離開」按鈕左邊 114.5px。
+        /// </summary>
+        private void CreateLangButton()
+        {
+            if (_langButton != null || _exitButton == null) return;
+            var refRt = (RectTransform)_exitButton.transform;
+            var go = new GameObject("LangButton", typeof(RectTransform), typeof(Image), typeof(Button));
+            go.transform.SetParent(refRt.parent, false);
+            var rt = (RectTransform)go.transform;
+            rt.anchorMin = refRt.anchorMin; rt.anchorMax = refRt.anchorMax; rt.pivot = refRt.pivot;
+            rt.sizeDelta = new Vector2(130f, 88f);
+            rt.localScale = refRt.localScale;
+            rt.anchoredPosition = refRt.anchoredPosition + new Vector2(-114.5f, -1.2f);
+
+            var img = go.GetComponent<Image>();
+            img.sprite = Resources.Load<Sprite>("UI/lang_button");
+            img.preserveAspect = true;
+            go.AddComponent<ButtonTrigger>();   // 與其他按鈕相同：手掌游標停 2 秒觸發
+
+            var textGo = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
+            textGo.transform.SetParent(go.transform, false);
+            var trt = (RectTransform)textGo.transform;
+            // 底圖 130x88：膠囊在上方（x14~116、y3~36），下方是光暈 → 文字只放膠囊區（Unity 錨點 y 由下往上算）
+            trt.anchorMin = new Vector2(0.14f, 0.61f); trt.anchorMax = new Vector2(0.86f, 0.94f);
+            trt.offsetMin = trt.offsetMax = Vector2.zero;
+            _langLabel = textGo.GetComponent<TextMeshProUGUI>();
+            if (_dialogText != null) { _langLabel.font = _dialogText.font; _langLabel.fontSharedMaterial = _dialogText.fontSharedMaterial; }
+            _langLabel.color = Color.white;
+            _langLabel.fontStyle = FontStyles.Bold;
+            _langLabel.enableAutoSizing = true; _langLabel.fontSizeMin = 8; _langLabel.fontSizeMax = 18;
+            _langLabel.alignment = TextAlignmentOptions.Center;
+            _langLabel.raycastTarget = false;
+
+            _langButton = go.GetComponent<Button>();
+            _langButton.onClick.AddListener(OnLangClicked);
+            RefreshLangLabel();
+            go.SetActive(false);
+        }
+
+        /// <summary>顯示要切換過去的語言：中文模式顯示「EN」，英文模式顯示「中文」。</summary>
+        private void RefreshLangLabel()
+        {
+            if (_langLabel != null) _langLabel.text = Lang.IsEn ? "中文" : "EN";
+        }
+
+        private void OnLangClicked()
+        {
+            Lang.Toggle();
+            RefreshLangLabel();
+            if (NuwaManager.Instance != null)
+                NuwaManager.Instance.NuwaTTS(Lang.T("已切換為中文", "Switched to English"));
+        }
+
+        public void ShowLangButton(bool show)
+        {
+            if (show) CreateLangButton();
+            if (_langButton != null) _langButton.gameObject.SetActive(show);
+        }
+
         protected override void Awake()
         {
             base.Awake();
             InitializeButtons();
+            ConfigureDialogText();
+            Lang.Changed += RefreshLangLabel;
+        }
+
+        /// <summary>
+        /// 對話框文字（場景設定：寬 200、左右邊距約 -409/-352 → 實際排版寬約 961，幾乎整條上方列，中文從不換行）。
+        /// 英文長句會延伸到左邊標題底下 → 英文時改成邊距 0、寬 560（標題與右上按鈕之間），超出就換行並自動縮字；
+        /// 中文維持原設定，外觀不變。
+        /// </summary>
+        private Vector4 _dialogMarginZh;
+        private Vector2 _dialogSizeZh;
+        private float _dialogFontZh;
+        private bool _dialogCaptured;
+
+        private void ConfigureDialogText()
+        {
+            if (_dialogText == null) return;
+            _dialogMarginZh = _dialogText.margin;
+            _dialogSizeZh = _dialogText.rectTransform.sizeDelta;
+            _dialogFontZh = _dialogText.fontSize;
+            _dialogCaptured = true;
+            ApplyDialogLayout();
+            Lang.Changed += ApplyDialogLayout;
+        }
+
+        private void ApplyDialogLayout()
+        {
+            if (_dialogText == null || !_dialogCaptured) return;
+            var rt = _dialogText.rectTransform;
+            if (Lang.IsEn)
+            {
+                _dialogText.margin = Vector4.zero;
+                rt.sizeDelta = new Vector2(560f, Mathf.Max(_dialogSizeZh.y, 50f));
+                _dialogText.enableWordWrapping = true;
+                _dialogText.enableAutoSizing = true;
+                _dialogText.fontSizeMax = _dialogFontZh;
+                _dialogText.fontSizeMin = Mathf.Min(_dialogFontZh, 11f);
+            }
+            else
+            {
+                _dialogText.margin = _dialogMarginZh;
+                rt.sizeDelta = _dialogSizeZh;
+                _dialogText.enableAutoSizing = false;
+                _dialogText.fontSize = _dialogFontZh;
+            }
         }
 
         /// <summary>
@@ -59,6 +169,8 @@ namespace SPPB.Core
 
         private void OnDestroy()
         {
+            Lang.Changed -= RefreshLangLabel;
+            Lang.Changed -= ApplyDialogLayout;
             // Unsubscribe events to prevent memory leaks
             if (_instructionButton != null)
             {
@@ -78,7 +190,7 @@ namespace SPPB.Core
         {
             if (_titleImage != null && titleSprite != null)
             {
-                _titleImage.sprite = titleSprite;
+                _titleImage.sprite = Lang.S(titleSprite);   // 中英切換：英文時換成 Resources/LangEn 同名圖
             }
         }
 
@@ -238,6 +350,7 @@ namespace SPPB.Core
             ShowDialog(false);
             ShowInstructionButton(false);
             ShowExitButton(false);
+            ShowLangButton(false);
         }
 
         #region Button Events

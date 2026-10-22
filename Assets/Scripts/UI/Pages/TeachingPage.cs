@@ -145,45 +145,45 @@ namespace SPPB.UI.Pages
                 // ===== Intro Phase (show icon containers) =====
                 // 語音講完不自動推進，一律等使用者按「繼續」按鈕（OnStartClicked）
                 case FlowStep.TestIntro:
-                    _nuwaText = "我們將進行3項測試，不用緊張，請依照語音指示進行操作。";
+                    _nuwaText = Lang.T("我們將進行3項測試，不用緊張，請依照語音指示進行操作。", "We will do three tests. Don't worry, just follow my voice instructions.");
                     break;
 
                 case FlowStep.BalanceIntro:
-                    _nuwaText = "第一項是平衡測試，請您嘗試三種不同的站姿，每一種都要維持10秒鐘";
+                    _nuwaText = Lang.T("第一項是平衡測試，請您嘗試三種不同的站姿，每一種都要維持10秒鐘", "The first is the Balance Test. You will try three different stances, holding each one for 10 seconds.");
                     break;
 
                 case FlowStep.SitStandIntro:
-                    _nuwaText = "接下來是坐站測試，請坐在椅子上，雙手交叉抱胸，進行起立坐下動作。請在沒有扶手的情況下，連續站立並坐下5次";
+                    _nuwaText = Lang.T("接下來是坐站測試，請坐在椅子上，雙手交叉抱胸，進行起立坐下動作。請在沒有扶手的情況下，連續站立並坐下5次", "Next is the Chair Stand Test. Sit on the chair with your arms crossed over your chest. Without using armrests, stand up and sit down 5 times in a row.");
                     break;
 
                 case FlowStep.WalkIntro:
-                    _nuwaText = "最後是步態速度測試。開始前，請先站到離我 4.5 公尺以外的起點，面向我站好。當我說開始時，請以平常走路的速度向我走過來，直到走到地上的標示終點為止。";
+                    _nuwaText = Lang.T("最後是步態速度測試。開始前，請先站到離我 4.5 公尺以外的起點，面向我站好。當我說開始時，請以平常走路的速度向我走過來，直到走到地上的標示終點為止。", "Last is the Gait Speed Test. Before we start, please stand at the starting point at least 4.5 meters away, facing me. When I say start, walk toward me at your normal pace until you reach the finish mark on the floor.");
                     break;
 
                 // ===== A-Pose Calibration Teaching (video only, no small icon) =====
                 case FlowStep.APoseCalibration_Teaching:
-                    _nuwaText = "接下來要進行定位校準。請站到我正前方約 2 到 3 公尺，讓頭到腳都出現在畫面中。站直，雙手往兩側斜下方張開，像 A 字形，保持不動兩秒鐘就完成了。準備好後請點擊開始。";
+                    _nuwaText = Lang.T("接下來要進行定位校準。請站到我正前方約 2 到 3 公尺，讓頭到腳都出現在畫面中。站直，雙手往兩側斜下方張開，像 A 字形，保持不動兩秒鐘就完成了。準備好後請點擊開始。", "Next is calibration. Please stand about 2 to 3 meters in front of me, with your whole body on the screen. Stand straight, spread your arms down and out like the letter A, and hold still for two seconds. Press start when you are ready.");
                     break;
 
                 // ===== Teaching Phase (show video + small icon) =====
                 case FlowStep.BalanceSideBySide_Teaching:
-                    _nuwaText = "點擊開始後，將進行影片中的測驗內容，請依照內容執行動作!";
+                    _nuwaText = Lang.T("點擊開始後，將進行影片中的測驗內容，請依照內容執行動作!", "After you press start, please do the movement shown in the video.");
                     break;
 
                 case FlowStep.BalanceSemiTandem_Teaching:
-                    _nuwaText = "第二種姿勢是半步站立，請將一隻腳稍微往前放，兩腳前後站立。點擊開始後，將進行影片中的測驗內容，請依照內容執行動作!";
+                    _nuwaText = Lang.T("第二種姿勢是半步站立，請將一隻腳稍微往前放，兩腳前後站立。點擊開始後，將進行影片中的測驗內容，請依照內容執行動作!", "The second stance is the semi-tandem stand. Place one foot half a step forward. After you press start, please do the movement shown in the video.");
                     break;
 
                 case FlowStep.BalanceTandem_Teaching:
-                    _nuwaText = "第三種姿勢，腳跟對角尖，請將一隻腳完全放在另一隻腳前面。點擊開始後，將進行影片中的測驗內容，請依照內容執行動作!";
+                    _nuwaText = Lang.T("第三種姿勢，腳跟對角尖，請將一隻腳完全放在另一隻腳前面。點擊開始後，將進行影片中的測驗內容，請依照內容執行動作!", "The third stance is the tandem stand, heel to toe. Place one foot directly in front of the other. After you press start, please do the movement shown in the video.");
                     break;
 
                 case FlowStep.SitStand_Teaching:
-                    _nuwaText = "點擊開始後，將進行影片中的測驗內容，請依照內容執行動作!";
+                    _nuwaText = Lang.T("點擊開始後，將進行影片中的測驗內容，請依照內容執行動作!", "After you press start, please do the movement shown in the video.");
                     break;
 
                 case FlowStep.Walk_Teaching:
-                    _nuwaText = "請先站到離我 4.5 公尺以外的起點，面向我站好。點擊開始後，聽到開始就向我走過來。";
+                    _nuwaText = Lang.T("請先站到離我 4.5 公尺以外的起點，面向我站好。點擊開始後，聽到開始就向我走過來。", "Please stand at the starting point at least 4.5 meters away, facing me. After you press start, walk toward me when you hear start.");
                     break;
             }
         }
@@ -605,34 +605,34 @@ namespace SPPB.UI.Pages
             switch (step)
             {
                 case FlowStep.TestIntro:
-                    return "我們將進行3項測試，不用緊張，請依照語音指示進行操作";
+                    return Lang.T("我們將進行3項測試，不用緊張，請依照語音指示進行操作", "We will do 3 tests. Don't worry, just follow the voice instructions");
 
                 case FlowStep.APoseCalibration_Teaching:
-                    return "稍後將進行定位校準，請依指示進行操作";
+                    return Lang.T("稍後將進行定位校準，請依指示進行操作", "Calibration is next. Please follow the instructions");
 
                 case FlowStep.BalanceIntro:
-                    return "第一項是平衡測驗，請您嘗試三種不同的站姿，並維持10秒鐘";
+                    return Lang.T("第一項是平衡測驗，請您嘗試三種不同的站姿，並維持10秒鐘", "Balance Test: try three stances and hold each for 10 seconds");
 
                 case FlowStep.BalanceSideBySide_Teaching:
-                    return "雙腳併攏站立，請站好並保持平衡，當我說開始後請維持不動";
+                    return Lang.T("雙腳併攏站立，請站好並保持平衡，當我說開始後請維持不動", "Stand with feet side by side; hold still when I say start");
 
                 case FlowStep.BalanceSemiTandem_Teaching:
-                    return "第二種姿勢，半步站立，請將一隻腳稍微往前放，兩腳前後站立";
+                    return Lang.T("第二種姿勢，半步站立，請將一隻腳稍微往前放，兩腳前後站立", "Stance 2, semi-tandem: place one foot half a step forward");
 
                 case FlowStep.BalanceTandem_Teaching:
-                    return "第三種姿勢，腳跟對角尖，請將一隻腳完全放在另一隻腳前面";
+                    return Lang.T("第三種姿勢，腳跟對角尖，請將一隻腳完全放在另一隻腳前面", "Stance 3, tandem: place one foot right in front of the other");
 
                 case FlowStep.SitStandIntro:
-                    return "請坐在椅子上，雙手交叉抱胸，連續站立並坐下5次";
+                    return Lang.T("請坐在椅子上，雙手交叉抱胸，連續站立並坐下5次", "Sit with arms crossed, then stand up and sit down 5 times");
 
                 case FlowStep.SitStand_Teaching:
-                    return "請坐在椅子上，雙手交叉抱胸，連續站立並坐下5次";
+                    return Lang.T("請坐在椅子上，雙手交叉抱胸，連續站立並坐下5次", "Sit with arms crossed, then stand up and sit down 5 times");
 
                 case FlowStep.WalkIntro:
-                    return "開始前請先站到離凱比 4.5 公尺以外的起點，再以平常速度走過來";
+                    return Lang.T("開始前請先站到離凱比 4.5 公尺以外的起點，再以平常速度走過來", "Start at least 4.5 m from Kebbi, then walk over at normal pace");
 
                 case FlowStep.Walk_Teaching:
-                    return "請站到 4.5 公尺外的起點，面向凱比，聽到開始後走過來";
+                    return Lang.T("請站到 4.5 公尺外的起點，面向凱比，聽到開始後走過來", "Stand 4.5 m away facing Kebbi; walk over when you hear start");
 
                 default:
                     return "";

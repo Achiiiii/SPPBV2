@@ -6,6 +6,63 @@
 
 ---
 
+## V2.5 — 2026-10-22
+
+### 版本資訊
+
+| 項目 | 內容 |
+|---|---|
+| 對外版本 | V2.5 |
+| App 內部版本 | versionName `2.5.0`／versionCode `250`（前一版 `2.2.0`／`220`） |
+| 安裝檔 | `Builds/SPPBV2_v2.5.0.apk`（交付名 `SPPBV2.5.apk`），140,336,340 bytes |
+| SHA-256（前 16 碼） | `d4af504ec02c0f7c` |
+| 打包時間 | 2026-10-22 17:29 |
+| 套件名稱／Android／繪圖 API／Unity | 同 V2.2（`com.DefaultCompany.SPPBV2`、minSdk 29／targetSdk 33、GLES3 only、2022.3.62f1） |
+| 實機 | 凱比 AIR H300，序號尾碼 …054 |
+
+### 1. 中英切換
+
+- **`Core/Lang.cs`（新增）**
+  - `Language { Zh, En }`；`Lang.Current` 存在 PlayerPrefs `sppb_language`，下次開啟沿用；`Lang.Changed` 事件。
+  - 文字：`Lang.T(zh, en)`，中英寫在同一處。各頁使用者看得到的字串都改用它（`TestPage`、`TeachingPage`、`ScorePage`、`APoseCheck`、`TopBarManager`），原本的 `const string` 改成 property，切換後立即生效。
+  - 圖片：`Lang.S(sprite)` 到 `Resources/LangEn/` 找同名英文圖，找不到用原圖；`Lang.Original()` 反查中文原圖。`TopBarManager.SetTitleImage`、`TimerDisplay.SetIcon/SetTitleImage/SetUnitImage` 都套用。
+  - `LangSceneSwapper`：`AfterSceneLoad` 自動建立，切換時把場景上所有 Image 換成目前語言的圖，並依 `Lang.SceneTexts` 對照表替換場景/Prefab 裡寫死的 TMP 文字。英文較長時：文字框限制在外框寬 −24 內、開自動縮字。
+- **英文圖**：`Resources/LangEn/` 共 42 張（標題、提示大字、計時框標籤、教學頁、分數頁、Exit 等），與中文原圖同名、同尺寸、同風格重繪；`Editor/LangCheck.cs` 檢查每張中文圖是否都有英文對應。
+- **英文語音**：`NuwaManager` 英文時呼叫 `SpeakWithLocale(text, "en_US")`（`NuwaPlugin.mRobot.startTTS(text, "en_US")`），中文維持 `Nuwa.startTTS(text)`。
+- **語言按鈕**：`TopBarManager.CreateLangButton()`，以離開按鈕為基準位移 (−114.5, −1.2)，130×88，底圖 `Resources/UI/lang_button.png`，加 `ButtonTrigger`（同樣停 2 秒觸發）；標籤顯示「EN／中文」並訂閱 `Lang.Changed`。`ShowLangButton()`：只在首頁顯示（`HomePage` 開、`HideAll` 關）。
+- **上方對話框**：`TopBarManager.ConfigureDialogText/ApplyDialogLayout`，英文時 margin 0、寬 560、換行＋自動縮字；中文還原場景原設定（margin 約 −409／−352、寬 200）。原因：場景 TMP 的負 margin 會讓英文長句疊到標題。
+- **暫停面板**：說明英文為 "Leaving now won't save this test."；`PausePanel.Initialize()` 避免第一次 `Show()` 被自己的 `Awake` 關掉；「是／否」標籤跟著 `Lang.Changed` 更新。
+- **分數頁評語**：`RatingDialog`／`RatingSpeech` 改成 property，四級中英各一組。
+
+### 2. 測驗中提示放大 — `TestPage.ApplyLargeTestLayout()`
+
+在 `Initialize()` 一開始呼叫（必須早於 `CacheHintImageOriginalScale`，否則提示跳出動畫會縮回原尺寸）。倍率皆為 `[SerializeField]`，可在 Inspector 調整：
+
+| 項目 | 參數 | 倍率 | 基準點 |
+|---|---|---|---|
+| 短提示（倒數 3/2/1、測驗開始!、測驗失敗!、校準成功!） | `_hintScaleShort` | 2.0 | 自身中心 |
+| 完成提示（完成第 N 種姿勢…、已完成坐站測試…等） | `_hintScaleLong` | 1.6 | 自身中心；寬度上限 `_hintMaxWidth=940` |
+| 右下資訊區（計時框＋計次框＋步行進度條＋「維持動作!」） | `_infoPanelScale` | 1.6 | 計時框與計次框 `frame` 聯集的右下角，整組一起縮放（`ScaleAboutPoint`），避免各自放大後互相重疊 |
+| 左上站姿圖示 | `_stanceIconScale` | 1.4 | 圖中玻璃方塊左上角（圖檔右側/下方為陰影留白；步行圖 y 取 10%） |
+
+### 3. 開發工具（不影響凱比版）
+
+- `Editor/SppbBuild.BuildWindows()`：輸出 `Builds/Win/SPPBV2.exe`（介面檢查用）。Batchmode：`Unity.exe -quit -batchmode -buildTarget Win64 -executeMethod SppbBuild.BuildWindows`。之後打 APK 會自動切回 Android；第一次切回時 Gradle daemon 可能被中止導致失敗，重跑一次即可。
+- `Utils/UITour.cs`（僅 `UNITY_STANDALONE_WIN || UNITY_EDITOR` 編譯）：`SPPBV2.exe -uitour` 中、英各走一遍 17 個頁面、測驗中提示圖、分數頁四種評級、暫停面板，截圖到 `Builds/Win/tour/`；截提示圖期間停用 `SppbTestRunner`（否則步行 15 秒逾時會跳到分數頁）。
+- `VideoPoseTest`：Windows 獨立版一律跳過 VideoPose（原生追蹤器在 Windows 啟動會當掉）；`PushFrame` 前加 null 防護。
+
+### 本輪試做後撤回（未納入 V2.5）
+
+- 測驗中得分／正確回饋（撐住倒數圈、坐站次數與節奏預估、得分卡、提示字、音效、胸前 LED、平衡骨架變色、結束時念出得分、分數頁各項實際成績）以及兩版測驗畫面重新設計。實作後與原介面風格不一致，負責人決定維持原版，相關程式（`TestFeedback.cs`、`MovementResult.warn01`、`ScoreManager` 成績細節欄位等）與素材已全部移除。
+
+### 已知問題 / 待辦
+
+- 分數頁總分 0–3 分時，中文評語在上方對話框會貼到標題（負責人決定先維持）。
+- 英文語音需要凱比系統有 en_US TTS 語音，每台現場機器第一次使用請確認英文念得出來。
+- V2.2 的已知問題（對焦、`didUpdateThisFrame`、衣服顏色認人、距離估計值）未處理，仍有效。
+
+---
+
 ## V2.2 — 2026-09-29 ～ 2026-10-01
 
 ### 版本資訊
