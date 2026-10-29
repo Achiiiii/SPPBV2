@@ -24,7 +24,7 @@ namespace SPPB.Core.HeadTracking
         [Tooltip("pose 超過此秒數沒更新 = 找不到人")] public float poseStaleSec = 0.5f;
         [Tooltip("離畫面邊緣多近算「貼邊/出畫面」(比例)")] public float edgeMargin = 0.03f;
         [Tooltip("頭或腳出畫面時，每次尋找的誤差量(→角度 = kp*此值*FOV)")] public float searchErr = 0.2f;
-        [Tooltip("採用的最低信心值（實測真點 0.7~0.9，畫面外猜測點 ≤0.5）")] public float body25MinConf = 0.55f;
+        [Tooltip("採用的最低信心值（真點約 0.7~0.9，畫面外猜測點 ≤0.5）")] public float body25MinConf = 0.55f;
         [Tooltip("有效點少於此數 = 找不到人")] public int minKeyPoints = 5;
 
         [Header("控制參數")]
@@ -38,7 +38,7 @@ namespace SPPB.Core.HeadTracking
         public float maxStepDeg = 4f;
         [Tooltip("目標最多超前實機角度幾度（防延遲造成轉過頭）")]
         public float maxLeadDeg = 8f;
-        [Tooltip("垂直目標最多超前實機幾度。neck_y 實測離目標差 ~8° 內會推不動而停住（15:10 log：目標 -2.7°、實機卡 -10.7°），" +
+        [Tooltip("垂直目標最多超前實機幾度。neck_y 離目標差 ~8° 內會推不動而停住，" +
                  "所以要讓目標繼續累加到推得動為止；全身入鏡時 HoldCurrent 會把目標拉回實機角度")]
         public float maxPitchLeadDeg = 20f;
         [Tooltip("垂直馬達：目標變化超過此度數才立即重送")]
@@ -53,7 +53,7 @@ namespace SPPB.Core.HeadTracking
         public float yawMinDeg = -80f, yawMaxDeg = 80f;
         public float pitchMinDeg = -25f, pitchMaxDeg = 30f;
         [Tooltip("水平方向若轉反了(人在右頭往左)就打勾")] public bool invertYaw = false;
-        [Tooltip("實機 neck_y 抬頭方向的正負號（2026-09-29 實測：+ 是低頭 → -1）")]
+        [Tooltip("neck_y 抬頭方向的正負號（實機 + 為低頭，故為 -1）")]
         public float pitchUpSign = -1f;
 
         [Header("找不到人")]
@@ -172,7 +172,7 @@ namespace SPPB.Core.HeadTracking
             float dPitch = Mathf.Clamp(kp * ey * cameraVFovDeg, -maxStepDeg, maxStepDeg) * -pitchUpSign;
 
             // 兩軸都用「目標累加」：目標持續變化馬達才會動（以實機角度為基準會重送同一目標，凱比馬達每收到
-            // 新指令就重新起步 → 卡住不動，實測上下軸卡在固定差 6°）。
+            // 新指令就重新起步 → 卡住不動）。
             // 目標不可超前實機 maxLeadDeg：SPPB 影像延遲較長，超前太多會轉過頭而左右擺盪。
             // 已在中間的軸，目標設為目前角度讓頭停住。
             bool haveActual = !_editorStub && _nuwaReady;
@@ -273,7 +273,7 @@ namespace SPPB.Core.HeadTracking
             bool okY = Nuwa.setMotorPositionInDegree(Nuwa.NuwaMotorType.neck_z, yaw, motorSpeed);
 
             // 垂直(neck_y)馬達每收到指令就重新起步：同目標每 0.125 秒重送會讓它還沒動就被重置而卡住
-            // （實測目標 -0.9°、實機停在 -8.9° 達 15 秒，指令未被拒）。目標沒明顯變化時讓馬達把動作做完。
+            // 目標沒明顯變化時讓馬達把動作做完。
             float now = Time.unscaledTime;
             float change = Mathf.Abs(pitch - _lastPitchSent);
             bool sendPitch = forcePitch || !_pitchSentOnce

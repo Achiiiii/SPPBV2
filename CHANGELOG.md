@@ -1,7 +1,7 @@
 # 凱比 SPPB 體能評估 — 技術更新紀錄（CHANGELOG）
 
 給技術人員看。依版本號累積，**新版本加在最上方，舊版本保留不刪**。
-版本號以「一輪改動」為單位，由專案負責人在每輪開始前指定（從 V2.2 開始記錄）。
+版本號以「一輪改動」為單位（從 V2.2 開始記錄）。
 給現場人員的白話版另外輸出成桌面的 `V2.x_現場說明.docx`。
 
 ---
@@ -18,7 +18,7 @@
 | SHA-256（前 16 碼） | `d4af504ec02c0f7c` |
 | 打包時間 | 2026-10-22 17:29 |
 | 套件名稱／Android／繪圖 API／Unity | 同 V2.2（`com.DefaultCompany.SPPBV2`、minSdk 29／targetSdk 33、GLES3 only、2022.3.62f1） |
-| 實機 | 凱比 AIR H300，序號尾碼 …054 |
+| 實機 | 凱比 AIR H300 |
 
 ### 1. 中英切換
 
@@ -51,13 +51,9 @@
 - `Utils/UITour.cs`（僅 `UNITY_STANDALONE_WIN || UNITY_EDITOR` 編譯）：`SPPBV2.exe -uitour` 中、英各走一遍 17 個頁面、測驗中提示圖、分數頁四種評級、暫停面板，截圖到 `Builds/Win/tour/`；截提示圖期間停用 `SppbTestRunner`（否則步行 15 秒逾時會跳到分數頁）。
 - `VideoPoseTest`：Windows 獨立版一律跳過 VideoPose（原生追蹤器在 Windows 啟動會當掉）；`PushFrame` 前加 null 防護。
 
-### 本輪試做後撤回（未納入 V2.5）
-
-- 測驗中得分／正確回饋（撐住倒數圈、坐站次數與節奏預估、得分卡、提示字、音效、胸前 LED、平衡骨架變色、結束時念出得分、分數頁各項實際成績）以及兩版測驗畫面重新設計。實作後與原介面風格不一致，負責人決定維持原版，相關程式（`TestFeedback.cs`、`MovementResult.warn01`、`ScoreManager` 成績細節欄位等）與素材已全部移除。
-
 ### 已知問題 / 待辦
 
-- 分數頁總分 0–3 分時，中文評語在上方對話框會貼到標題（負責人決定先維持）。
+- 分數頁總分 0–3 分時，中文評語在上方對話框會貼到標題（維持現狀）。
 - 英文語音需要凱比系統有 en_US TTS 語音，每台現場機器第一次使用請確認英文念得出來。
 - V2.2 的已知問題（對焦、`didUpdateThisFrame`、衣服顏色認人、距離估計值）未處理，仍有效。
 
@@ -78,12 +74,12 @@
 | Android | minSdk 29／targetSdk 33（Nuwa SDK 的 BroadcastReceiver 在 targetSdk ≥34 會閃退，需維持 ≤33） |
 | 繪圖 API | **OpenGL ES 3 only**（關閉 Auto Graphics API，原本 Vulkan 優先） |
 | Unity | 2022.3.62f1 |
-| 實機 | 凱比 AIR H300（MT8189），序號尾碼 …058、…054 |
+| 實機 | 凱比 AIR H300（MT8189） |
 
 ### 1. 穩定性：原生記憶體洩漏（Vulkan）
 
 - **現象**：Native Heap 每秒漲約 2.2 MB，約 8 分鐘到 1.1 GB 被 lmkd 以 signal 9 砍掉，App 自動重開。
-- **定位**：Mono heap（~4 MB）與 `Profiler.GetTotalAllocatedMemoryLong`（~68 MB）都持平，只有 `dumpsys meminfo` 的 Native Heap 漲。用 `memtest.txt` 開關逐一關閉相機、AsyncGPUReadback、同步回讀、CustomRenderTexture、HandDetect、VideoPose 原生追蹤器，漏速皆不變；漏速與 fps 成正比（60fps≈2.2MB/s、30fps≈1.1MB/s、15fps≈0.5MB/s），約 **37 KB/幀**。09-17 舊版同樣在漏。
+- **定位**：Mono heap（~4 MB）與 `Profiler.GetTotalAllocatedMemoryLong`（~68 MB）都持平，只有 `dumpsys meminfo` 的 Native Heap 漲。用 `memtest.txt` 開關逐一關閉相機、AsyncGPUReadback、同步回讀、CustomRenderTexture、HandDetect、VideoPose 原生追蹤器，漏速皆不變；漏速與 fps 成正比（60fps≈2.2MB/s、30fps≈1.1MB/s、15fps≈0.5MB/s），約 **37 KB/幀**。
 - **修正**：`ProjectSettings` → Android Graphics APIs 改為只用 OpenGLES3（`m_APIs: 0b000000`、`m_Automatic: 0`）。GLES3 下漏速 ≈ 10–15 KB/s（量測誤差），追蹤中整輪 RSS 穩定 580–610 MB；fps 由 ~29 回到 ~59。
 - **新增** `Assets/Scripts/Utils/MemoryProbe.cs`：`RuntimeInitializeOnLoadMethod` 自動建立，每 30 秒 log `[Mem]`（Mono 使用/堆積、Unity 配置/保留、`/proc/self/status` VmRSS、追蹤狀態、fps）。
 
@@ -91,7 +87,7 @@
 
 - 狀態：`Unlocked → Capturing → Tracking / OtherPerson / Lost`。校準成功時 `BeginLock(refBoxHeight)` 取 8 幀上衣（肩→髖 t=0.5–0.8）與褲子（髖→膝）的色度＋亮度當基準。
 - 比對：`FeatureDistance` = max(色度差/0.07, 亮度 log 比/log 1.8)；總分 = 上衣 0.65 + 褲子 0.35（無褲子時只看上衣），>1 判不符；另有中心跳動 >0.3×畫面寬判換人；符合/不符各需持續 0.3 s 確認。
-- `IdentityCheckEnabled`：步行、**坐站**關閉（坐站蹲下時上衣遮擋變暗、大腿水平取到椅背景，實測一輪誤判 6 次）。
+- `IdentityCheckEnabled`：步行、**坐站**關閉（坐站蹲下時上衣遮擋變暗、大腿水平取到椅背景，容易誤判）。
 - ROI 遮罩：受測者以外區域 `Array.Clear` 塗黑（只作用在送 VideoPose 的 buffer），頭部追蹤主動時 `maskSuspended` 暫停遮罩。
 - 最小身形 = max(畫面高×0.25, 校準身高×0.3)。
 - 對焦跟隨：每 1 s 檢查，受測者中心移動 >5% 畫面寬才 `SetFocusPoint`（見「已知問題」）。
@@ -138,7 +134,7 @@
 
 ### 7. 相機／輸入 — `InputManager.cs`（sample）
 
-- 還原同事的 AsyncGPUReadback 版本；Android 等相機權限（每 5 s 重問）且 `devices` 非空才開相機。
+- 使用 AsyncGPUReadback 版本；Android 等相機權限（每 5 s 重問）且 `devices` 非空才開相機。
 - 新增 `TransformTexture.matrix`／`ToSourceUV`、`IInput.SetFocusPoint`／`IsFocusPointSupported`（`WebCamDevice.isAutoFocusPointSupported`）。
 
 ### 資料與隱私

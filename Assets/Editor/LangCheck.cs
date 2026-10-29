@@ -6,7 +6,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// 中英切換檢查（V2.5）：列出場景上用到、且在 Resources/LangEn 有英文版的圖，以及 LangEn 裡沒被用到的圖。
+/// 中英切換檢查：列出場景上用到、且在 Resources/LangEn 有英文版的圖，以及 LangEn 裡沒被用到的圖。
 /// Batchmode：Unity.exe -batchmode -quit -projectPath . -executeMethod LangCheck.Run -logFile langcheck.log
 /// </summary>
 public static class LangCheck

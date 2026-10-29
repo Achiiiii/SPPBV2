@@ -124,11 +124,11 @@ namespace SPPB.UI.Pages
         [SerializeField] private float _aposeHoldTime = 2.0f;
         [Tooltip("用骨架角度檢查 A-pose。VideoPose 原生偵測太寬鬆(手沒張開也會過)，預設開啟")]
         [SerializeField] private bool _useStrictAPoseCheck = true;
-        [Tooltip("上臂張開角度下限(相對身體往下方向)。實測手垂下約 6~21°")]
+        [Tooltip("上臂張開角度下限(相對身體往下方向)。手自然垂下約 6~21°")]
         [SerializeField] private float _aposeArmMinDeg = 30f;
         [Tooltip("上臂張開角度上限。T-pose 約 90°")]
         [SerializeField] private float _aposeArmMaxDeg = 80f;
-        [Tooltip("手肘/膝蓋需打直的最小角度（實測手臂伸直約 143~152°）")]
+        [Tooltip("手肘/膝蓋需打直的最小角度（手臂伸直約 143~152°）")]
         [SerializeField] private float _aposeLimbStraightMinDeg = 130f;
         private float _aposeHoldTimer = 0f;
         private float _aposeLogTimer = 0f;
@@ -187,7 +187,7 @@ namespace SPPB.UI.Pages
         {
             base.Initialize();
 
-            // V2.5：測驗中提示放大（必須在記錄提示圖原始大小之前，否則跳出動畫會縮回原尺寸）
+            // 測驗中提示放大（必須在記錄提示圖原始大小之前，否則跳出動畫會縮回原尺寸）
             ApplyLargeTestLayout();
 
             // Cache original scales of all hint images
@@ -208,9 +208,9 @@ namespace SPPB.UI.Pages
             HideAllHintImages();
         }
 
-        #region V2.5 提示放大
+        #region 提示放大
 
-        [Header("V2.5 測驗中提示放大")]
+        [Header("測驗中提示放大")]
         [Tooltip("短提示（測驗開始!/校準成功!/測驗失敗!/倒數）放大倍率")] [SerializeField] private float _hintScaleShort = 2f;
         [Tooltip("完成提示（完成第 N 種姿勢…）放大倍率")] [SerializeField] private float _hintScaleLong = 1.6f;
         [Tooltip("中央提示最大寬度（畫面 1024，左右各留約 40）")] [SerializeField] private float _hintMaxWidth = 940f;
@@ -220,10 +220,10 @@ namespace SPPB.UI.Pages
         private bool _largeLayoutApplied;
 
         /// <summary>
-        /// 放大測驗中的提示 UI，位置依原本的對齊點校準：
+        /// 放大測驗中的提示 UI，位置依原對齊點校準：
         ///  - 中央提示：以自身中心放大，太寬的依 _hintMaxWidth 限制。
-        ///  - 右下資訊區：次數框與計時框原本上下疊放，各自放大會互相重疊 → 當成一組，以兩個外框聯集的右下角為基準一起放大，
-        ///    「維持動作!」也一起，維持原本「在計時框正上方」的相對位置。
+        ///  - 右下資訊區：次數框與計時框上下疊放，各自放大會互相重疊，故當成一組，以兩個外框聯集的右下角為基準一起放大，
+        ///    「維持動作!」也一起，維持「在計時框正上方」的相對位置。
         ///  - 站姿圖示：以圖中玻璃方塊的左上角為基準放大（圖檔右側/下方是陰影留白）。
         /// </summary>
         private void ApplyLargeTestLayout()
@@ -331,7 +331,7 @@ namespace SPPB.UI.Pages
             if (step == FlowStep.APoseCalibration) ResetCalibrationGuidance();
             // 步行、坐站時關閉身分比對（改靠區域遮罩與位置跳動）：
             //  - 步行：走近鏡頭只剩局部身體，衣服顏色取樣不可靠
-            //  - 坐站：蹲下時上衣被遮/變暗、大腿變水平取到椅子背景，實測一輪誤判其他人 6 次
+            //  - 坐站：蹲下時上衣被遮/變暗、大腿變水平取到椅子背景，容易誤判為其他人
             if (videoPoseTest != null && videoPoseTest.subject != null)
                 videoPoseTest.subject.IdentityCheckEnabled = step != FlowStep.Walk_Test && step != FlowStep.SitStand_Test;
             ConfigureUIForStep(step);
@@ -543,7 +543,7 @@ namespace SPPB.UI.Pages
             if (_guideCandidateTimer < stable || hint == _guideShown) return;
 
             _guideShown = hint;
-            // 上方文字維持原本簡短的校準說明（提示句太長會爆版），詳細提示只用語音
+            // 上方文字維持簡短的校準說明（提示句太長會爆版），詳細提示只用語音
             Debug.Log($"[APose][引導] {hint}");
 
             // 語音：同一句不重複講、間隔夠久才講
@@ -672,7 +672,6 @@ namespace SPPB.UI.Pages
             if (videoPoseTest == null) return;
             bool inActiveTest = _testState == TestState.Testing && IsRealTestStep(_currentStep);
             // 步行整段不觸發重新定位：走向鏡頭時頭手腳一定會出框，暫停會打斷計時
-            // （原本用「已開始前進」判斷，但 VideoPose 深度幾乎不隨前進變化，擋不住）
             if (_currentStep == FlowStep.Walk_Test)
                 inActiveTest = false;
 

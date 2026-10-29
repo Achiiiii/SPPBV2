@@ -8,7 +8,7 @@ namespace SPPB.Utils
     /// 對照 adb dumpsys meminfo 的 Native Heap：
     ///  - Mono 跟著漲 → C# 物件被留住；
     ///  - Unity 配置跟著漲 → Unity 物件(貼圖/材質…)沒釋放；
-    ///  - 兩者都平、Native Heap 仍漲 → 原生層洩漏（2026-09-29 查到 Vulkan 每幀漏 ~37KB，已改 GLES3）。
+    ///  - 兩者都平、Native Heap 仍漲 → 原生層洩漏（例如 Vulkan 驅動層；本專案因此只用 GLES3）。
     /// 啟動時自動建立，不需掛在場景上。
     /// </summary>
     public class MemoryProbe : MonoBehaviour

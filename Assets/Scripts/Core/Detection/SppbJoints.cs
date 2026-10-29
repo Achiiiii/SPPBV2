@@ -4,7 +4,7 @@ namespace SPPB.Core.Detection
 {
     /// <summary>
     /// 關節索引常數 + 幾何工具。索引對應 VideoPoseAvatar.boneId（globalTransforms 前 22 個為身體關節）。
-    /// 原本包在 native motion_sdk 的 bdis/fdis/dd/角度 計算，改用具名函式在 C# 重算。
+    /// bdis/fdis/dd/角度等判定用的關節計算。
     /// </summary>
     public static class SppbJoints
     {

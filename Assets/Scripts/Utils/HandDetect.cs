@@ -56,8 +56,8 @@ public class HandDetect : MonoBehaviour
         {
             List<Vector3> vectors = ParseStringToVector3List(newstring);
 
-            // 肩寬每幀更新（平滑）。原本只在第一幀抓一次，VideoPose 追蹤器 Reset(例如進校準關開 A-pose)
-            // 後骨架尺度改變，舊肩寬失效 → 游標移動範圍被壓縮、碰不到螢幕右側。
+            // 肩寬每幀更新（平滑）：VideoPose 追蹤器 Reset(例如進校準關開 A-pose) 後骨架尺度會改變，
+            // 只抓一次的話游標移動範圍會被壓縮、碰不到螢幕右側。
             float shoulder = Vector3.Distance(vectors[13], vectors[17]);
             if (shoulder > 1f)
             {

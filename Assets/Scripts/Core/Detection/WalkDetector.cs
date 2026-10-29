@@ -13,7 +13,7 @@ namespace SPPB.Core.Detection
     public class WalkDetector : IMovementDetector
     {
         private const int BaselineFrames = 5;
-        // 追蹤快丟失時 VideoPose 偶爾吐出深度錯亂的一幀(實測出現 diff=60,289,520)，會造成假完成。
+        // 追蹤快丟失時 VideoPose 偶爾吐出深度錯亂的一幀，會造成假完成。
         private const float MaxDepthJumpPerFrame = 100f;   // 單幀深度跳動上限(×1000單位)，超過視為錯誤幀丟棄
         private const int FinishConfirmFrames = 3;          // 需連續幾幀超過門檻才算完成
         private float _lastValidDepth;

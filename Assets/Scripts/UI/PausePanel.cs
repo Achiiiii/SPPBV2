@@ -42,7 +42,7 @@ namespace SPPB.UI
         }
 
         /// <summary>
-        /// 選項改成文字「是／否」：原本的兩個圖示按鈕圖片大小不一、排版不齊 → 隱藏，改用程式產生的同尺寸圓角按鈕。
+        /// 隱藏場景上的兩個圖示按鈕，改用程式產生的同尺寸圓角文字按鈕「是／否」。
         /// 是＝離開測驗（左，白底深字），否＝繼續測驗（右，橘底白字）。字型沿用面板上的中文字型。
         /// </summary>
         private void ApplyYesNoLabels()
@@ -54,7 +54,7 @@ namespace SPPB.UI
             _exitButton.gameObject.SetActive(false);
             _resumeButton.gameObject.SetActive(false);
 
-            // 原本按鈕的垂直位置（錨點在面板左上）；兩顆按鈕在面板水平中線左右對稱
+            // 沿用場景按鈕的垂直位置（錨點在面板左上）；兩顆按鈕在面板水平中線左右對稱
             var parentRt = (RectTransform)parent;
             float y = ((RectTransform)_resumeButton.transform).anchoredPosition.y;
             float cx = parentRt.rect.width > 0f ? parentRt.rect.width * 0.5f : 185.5f;

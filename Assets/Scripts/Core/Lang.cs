@@ -10,7 +10,7 @@ namespace SPPB.Core
     public enum Language { Zh = 0, En = 1 }
 
     /// <summary>
-    /// 中英切換（V2.5）。
+    /// 中英切換。
     ///  - 文字：L.T("中文", "English")，中英寫在同一處方便對照。
     ///  - 圖片：英文圖放在 Resources/LangEn/，檔名與中文原圖相同；Lang.S(原圖) 取英文版，沒有英文圖就回傳原圖。
     ///  - 場景上的 Image / TMP：LangSceneSwapper 在切換時統一替換，不用改場景。

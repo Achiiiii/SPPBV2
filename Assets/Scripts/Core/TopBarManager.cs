@@ -35,13 +35,12 @@ namespace SPPB.Core
 
         private Coroutine _dialogPopCoroutine;
 
-        // ---------- 中英切換按鈕（V2.5，只在首頁顯示，放在「使用方法」左邊） ----------
+        // ---------- 中英切換按鈕（只在首頁顯示） ----------
         private Button _langButton;
         private TextMeshProUGUI _langLabel;
 
         /// <summary>
-        /// 建立中英切換按鈕（底圖 Resources/UI/lang_button.png，與原「使用方法」按鈕同款 130x88）。
-        /// 場景已拿掉「使用方法」按鈕，所以放在它原本的位置：「離開」按鈕左邊 114.5px。
+        /// 建立中英切換按鈕（底圖 Resources/UI/lang_button.png，130x88），位置在「離開」按鈕左邊 114.5px。
         /// </summary>
         private void CreateLangButton()
         {

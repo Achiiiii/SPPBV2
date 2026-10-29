@@ -64,3 +64,6 @@ Thumbs.db
 /walk_diag_*.csv
 /*.log
 /_nul
+
+# Claude Code 本機權限設定
+.claude/settings.local.json

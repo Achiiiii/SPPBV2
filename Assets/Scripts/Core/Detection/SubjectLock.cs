@@ -35,7 +35,7 @@ namespace SPPB.Core.Detection
         [Header("有效人物")]
         [Tooltip("外框高度至少為校準時的此比例。不能太高：校準時站得近、之後退後或頭部抬頭只拍到上半身，身形會變小")]
         public float minSizeRatio = 0.3f;
-        [Tooltip("外框高度至少為畫面高度的此比例（排除 VideoPose 抓到的小型假骨架，實測約 100px/480px）")]
+        [Tooltip("外框高度至少為畫面高度的此比例（排除 VideoPose 抓到的小型假骨架）")]
         public float minImageHeightRatio = 0.25f;
         [Tooltip("keyPoints 平均信心值下限")]
         public float minConfidence = 0.4f;
